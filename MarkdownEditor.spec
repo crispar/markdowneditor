@@ -20,8 +20,14 @@ qt_excludes = [
     'PySide6.QtMultimedia',
     'PySide6.QtMultimediaWidgets',
     'PySide6.QtNfc',
+    'PySide6.QtNetworkAuth',
     'PySide6.QtPdf',
     'PySide6.QtPdfWidgets',
+    'PySide6.QtQuick',
+    'PySide6.QtQuick3D',
+    'PySide6.QtQuickControls2',
+    'PySide6.QtQuickWidgets',
+    'PySide6.QtQml',
     'PySide6.QtRemoteObjects',
     'PySide6.QtScxml',
     'PySide6.QtSensors',
@@ -31,6 +37,8 @@ qt_excludes = [
     'PySide6.QtSvgWidgets',
     'PySide6.QtTest',
     'PySide6.QtUiTools',
+    'PySide6.QtVirtualKeyboard',
+    'PySide6.QtWebSockets',
     'PySide6.QtXml',
 ]
 
@@ -46,6 +54,11 @@ python_excludes = [
     'scipy',
     'pandas',
     'matplotlib',
+    'multiprocessing',
+    'concurrent',
+    'curses',
+    'lib2to3',
+    'xmlrpc',
 ]
 
 a = Analysis(
@@ -79,7 +92,8 @@ a = Analysis(
     noarchive=False,
 )
 
-# Remove unnecessary binaries to reduce size (conservative list)
+# Remove unnecessary binaries to reduce size
+# We filter out specific DLLs and all translation files (.qm)
 a.binaries = [x for x in a.binaries if not any(
     exclude in x[0].lower() for exclude in [
         'qt6designer',
@@ -93,8 +107,16 @@ a.binaries = [x for x in a.binaries if not any(
         'qt6sql',
         'qt6pdf',
         'qt6virtualkeyboard',
+        'qt6quick',
+        'qt6qml',
+        'qt6networkauth',
+        'opengl32sw', # Large software rasterizer (assume GPU exists)
+        'd3dcompiler', # Often bundled but may be needed by WebEngine (risky, but saves 4MB) - uncomment if issues arise
     ]
 )]
+
+# Remove translation files to save space (can be 20MB+)
+a.datas = [x for x in a.datas if not x[0].endswith('.qm')]
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 

@@ -2,7 +2,7 @@ from typing import Tuple
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QPlainTextEdit, QFileDialog, QMessageBox
 )
-from PySide6.QtCore import Signal, QTimer
+from PySide6.QtCore import Signal, QTimer, QEvent
 from PySide6.QtGui import QTextCursor, QKeyEvent, QFont
 from PySide6.QtCore import Qt
 
@@ -23,6 +23,9 @@ class EditorWidget(QWidget):
 
         self._setup_ui()
         self._connect_signals()
+
+        # Install event filter on editor to catch Ctrl+V
+        self.editor.installEventFilter(self)
 
     def _setup_ui(self):
         layout = QVBoxLayout(self)
@@ -67,11 +70,13 @@ class EditorWidget(QWidget):
     def _emit_text_changed(self):
         self.text_changed.emit(self.editor.toPlainText())
 
-    def keyPressEvent(self, event: QKeyEvent):
-        if event.key() == Qt.Key_V and event.modifiers() == Qt.ControlModifier:
-            if self._handle_paste():
-                return
-        super().keyPressEvent(event)
+    def eventFilter(self, obj, event: QEvent) -> bool:
+        """Intercept key events from the editor widget"""
+        if obj == self.editor and event.type() == QEvent.KeyPress:
+            if event.key() == Qt.Key_V and event.modifiers() == Qt.ControlModifier:
+                if self._handle_paste():
+                    return True  # Event handled, don't propagate
+        return super().eventFilter(obj, event)
 
     def _handle_paste(self) -> bool:
         from PySide6.QtWidgets import QApplication

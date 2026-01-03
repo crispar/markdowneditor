@@ -51,53 +51,67 @@ class ImageHandler:
             return f"images/{filename}"
         return None
 
+    # Image magic bytes signatures
+    IMAGE_SIGNATURES = {
+        b'\x89PNG\r\n\x1a\n': '.png',
+        b'\xff\xd8\xff': '.jpg',
+        b'GIF87a': '.gif',
+        b'GIF89a': '.gif',
+        b'RIFF': '.webp',  # WebP starts with RIFF
+        b'BM': '.bmp',
+    }
+
     def save_image_from_url(self, url: str) -> Optional[str]:
         try:
             self.ensure_images_dir()
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             unique_id = uuid.uuid4().hex[:8]
 
-            # Determine extension from URL or default to png
-            ext = self._get_extension_from_url(url)
-            filename = f"image_{timestamp}_{unique_id}{ext}"
-            filepath = self.images_dir / filename
-
-            # Download image with headers to avoid 403
+            # Download with headers to avoid 403
             request = urllib.request.Request(
                 url,
                 headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Referer': url,
                 }
             )
 
-            with urllib.request.urlopen(request, timeout=10) as response:
-                content_type = response.headers.get('Content-Type', '')
+            with urllib.request.urlopen(request, timeout=15) as response:
+                data = response.read()
 
-                # Verify it's an image
-                if not content_type.startswith('image/'):
+                # Check for image by magic bytes
+                ext = self._detect_image_type(data)
+                if ext is None:
+                    # Not a valid image
                     return None
-
-                # Adjust extension based on content type
-                if 'jpeg' in content_type or 'jpg' in content_type:
-                    ext = '.jpg'
-                elif 'png' in content_type:
-                    ext = '.png'
-                elif 'gif' in content_type:
-                    ext = '.gif'
-                elif 'webp' in content_type:
-                    ext = '.webp'
 
                 filename = f"image_{timestamp}_{unique_id}{ext}"
                 filepath = self.images_dir / filename
 
                 with open(filepath, 'wb') as f:
-                    f.write(response.read())
+                    f.write(data)
 
             return f"images/{filename}"
 
         except Exception as e:
             print(f"Failed to download image: {e}")
             return None
+
+    def _detect_image_type(self, data: bytes) -> Optional[str]:
+        """Detect image type from magic bytes"""
+        if len(data) < 12:
+            return None
+
+        for signature, ext in self.IMAGE_SIGNATURES.items():
+            if data.startswith(signature):
+                # Special check for WebP (RIFF....WEBP)
+                if signature == b'RIFF' and data[8:12] != b'WEBP':
+                    continue
+                return ext
+
+        return None
 
     def _get_extension_from_url(self, url: str) -> str:
         # Remove query parameters

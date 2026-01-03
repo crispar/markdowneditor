@@ -1,9 +1,9 @@
 from pathlib import Path
 from PySide6.QtWidgets import (
     QMainWindow, QSplitter, QFileDialog, QMessageBox,
-    QStatusBar, QLabel, QWidget, QHBoxLayout
+    QStatusBar, QLabel, QWidget, QHBoxLayout, QMenu
 )
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QSettings
 from PySide6.QtGui import QAction, QKeySequence
 
 from src.editor import EditorWidget
@@ -11,12 +11,16 @@ from src.preview import PreviewWidget
 from src.export import PDFExporter
 from src.styles.theme import Theme
 
+MAX_RECENT_FILES = 10
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.current_file = None
         self.base_path = Path.cwd()
+        self.settings = QSettings("MarkdownEditor", "MarkdownEditor")
+        self.recent_files = self._load_recent_files()
 
         self._setup_ui()
         self._setup_menubar()
@@ -58,6 +62,13 @@ class MainWindow(QMainWindow):
         open_action.setShortcut(QKeySequence.Open)
         open_action.triggered.connect(self._open_file)
         file_menu.addAction(open_action)
+
+        # Recent Files submenu
+        self.recent_menu = QMenu("Recent Files", self)
+        file_menu.addMenu(self.recent_menu)
+        self._update_recent_menu()
+
+        file_menu.addSeparator()
 
         save_action = QAction("Save", self)
         save_action.setShortcut(QKeySequence.Save)
@@ -196,6 +207,7 @@ class MainWindow(QMainWindow):
                 self.editor.set_base_path(str(self.base_path))
                 self.preview.set_base_path(str(self.base_path))
                 self._update_title()
+                self._add_recent_file(file_path)
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Failed to open file:\n{str(e)}")
 
@@ -288,3 +300,72 @@ class MainWindow(QMainWindow):
             event.accept()
         else:
             event.ignore()
+
+    # Recent Files Management
+    def _load_recent_files(self):
+        files = self.settings.value("recent_files", [])
+        if files is None:
+            return []
+        # Filter out non-existent files
+        return [f for f in files if Path(f).exists()]
+
+    def _save_recent_files(self):
+        self.settings.setValue("recent_files", self.recent_files)
+
+    def _add_recent_file(self, file_path: str):
+        # Remove if already exists
+        if file_path in self.recent_files:
+            self.recent_files.remove(file_path)
+        # Add to front
+        self.recent_files.insert(0, file_path)
+        # Keep only MAX_RECENT_FILES
+        self.recent_files = self.recent_files[:MAX_RECENT_FILES]
+        self._save_recent_files()
+        self._update_recent_menu()
+
+    def _update_recent_menu(self):
+        self.recent_menu.clear()
+        if not self.recent_files:
+            no_recent = QAction("(No recent files)", self)
+            no_recent.setEnabled(False)
+            self.recent_menu.addAction(no_recent)
+        else:
+            for i, file_path in enumerate(self.recent_files):
+                action = QAction(f"&{i+1}. {Path(file_path).name}", self)
+                action.setToolTip(file_path)
+                action.triggered.connect(lambda checked, fp=file_path: self._open_recent_file(fp))
+                self.recent_menu.addAction(action)
+
+            self.recent_menu.addSeparator()
+            clear_action = QAction("Clear Recent Files", self)
+            clear_action.triggered.connect(self._clear_recent_files)
+            self.recent_menu.addAction(clear_action)
+
+    def _open_recent_file(self, file_path: str):
+        if not self._check_unsaved_changes():
+            return
+
+        if not Path(file_path).exists():
+            QMessageBox.warning(self, "File Not Found", f"File no longer exists:\n{file_path}")
+            self.recent_files.remove(file_path)
+            self._save_recent_files()
+            self._update_recent_menu()
+            return
+
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            self.editor.set_text(content)
+            self.current_file = Path(file_path)
+            self.base_path = self.current_file.parent
+            self.editor.set_base_path(str(self.base_path))
+            self.preview.set_base_path(str(self.base_path))
+            self._update_title()
+            self._add_recent_file(file_path)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to open file:\n{str(e)}")
+
+    def _clear_recent_files(self):
+        self.recent_files = []
+        self._save_recent_files()
+        self._update_recent_menu()

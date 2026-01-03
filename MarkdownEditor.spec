@@ -8,6 +8,7 @@ a = Analysis(
     binaries=[],
     datas=[
         ('src/styles/preview.css', 'src/styles'),
+        ('resources/js/mermaid.min.js', 'resources/js'),
     ],
     hiddenimports=[
         'PySide6.QtWebEngineWidgets',

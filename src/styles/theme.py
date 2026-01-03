@@ -163,6 +163,22 @@ class Theme:
             font-size: 0.9em;
             line-height: 1.45;
         }}
+        .highlight {{
+            background: #272822;
+            color: #f8f8f2;
+            border-radius: 6px;
+            padding: 16px;
+            overflow-x: auto;
+        }}
+        .highlight pre {{
+            margin: 0;
+            padding: 0;
+            background: transparent;
+            border: none;
+        }}
+        .highlight code {{
+            color: #f8f8f2;
+        }}
         blockquote {{
             margin: 0;
             padding: 0 1em;

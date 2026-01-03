@@ -22,11 +22,28 @@ PySide6를 기반으로 제작된 현대적인 마크다운(Markdown) 에디터�
 
 ### 설치
 
-필요한 라이브러리를 설치합니다.
+1. 가상 환경을 생성합니다. (빌드 스크립트가 `venv`라는 이름의 가상 환경을 사용하므로 이름을 `venv`로 설정하는 것을 권장합니다.)
 
-```bash
-pip install -r requirements.txt
-```
+    ```bash
+    python -m venv venv
+    ```
+
+2. 가상 환경을 활성화합니다.
+
+    *   **Windows**:
+        ```bash
+        venv\Scripts\activate
+        ```
+    *   **macOS/Linux**:
+        ```bash
+        source venv/bin/activate
+        ```
+
+3. 필요한 라이브러리를 설치합니다.
+
+    ```bash
+    pip install -r requirements.txt
+    ```
 
 ### 실행
 
@@ -39,6 +56,8 @@ python main.py
 ## 빌드 방법 (Windows)
 
 단독 실행 파일(EXE)을 생성하려면 다음 명령어를 실행하세요. (PyInstaller가 설치되어 있어야 합니다.)
+
+> **주의**: `build.bat` 스크립트는 `venv`라는 이름의 가상 환경이 존재한다고 가정합니다.
 
 ```bash
 build.bat

@@ -28,7 +28,6 @@ a = Analysis(
     excludes=[
         'tkinter',
         'unittest',
-        'email',
         'pydoc',
         'pdb',
         'PySide6.QtQml',

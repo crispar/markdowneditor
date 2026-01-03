@@ -107,11 +107,8 @@ a.binaries = [x for x in a.binaries if not any(
         'qt6sql',
         'qt6pdf',
         'qt6virtualkeyboard',
-        'qt6quick',
-        'qt6qml',
         'qt6networkauth',
-        'opengl32sw', # Large software rasterizer (assume GPU exists)
-        'd3dcompiler', # Often bundled but may be needed by WebEngine (risky, but saves 4MB) - uncomment if issues arise
+        # Note: qt6quick, qt6qml, opengl32sw are required by QtWebEngine
     ]
 )]
 

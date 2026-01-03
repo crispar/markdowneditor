@@ -2,6 +2,52 @@
 
 block_cipher = None
 
+# Exclude unnecessary Qt modules to reduce size
+qt_excludes = [
+    'PySide6.Qt3DAnimation',
+    'PySide6.Qt3DCore',
+    'PySide6.Qt3DExtras',
+    'PySide6.Qt3DInput',
+    'PySide6.Qt3DLogic',
+    'PySide6.Qt3DRender',
+    'PySide6.QtAxContainer',
+    'PySide6.QtBluetooth',
+    'PySide6.QtCharts',
+    'PySide6.QtConcurrent',
+    'PySide6.QtDataVisualization',
+    'PySide6.QtDesigner',
+    'PySide6.QtHelp',
+    'PySide6.QtMultimedia',
+    'PySide6.QtMultimediaWidgets',
+    'PySide6.QtNfc',
+    'PySide6.QtPdf',
+    'PySide6.QtPdfWidgets',
+    'PySide6.QtRemoteObjects',
+    'PySide6.QtScxml',
+    'PySide6.QtSensors',
+    'PySide6.QtSerialPort',
+    'PySide6.QtSql',
+    'PySide6.QtSvg',
+    'PySide6.QtSvgWidgets',
+    'PySide6.QtTest',
+    'PySide6.QtUiTools',
+    'PySide6.QtXml',
+]
+
+# Exclude unnecessary Python modules
+python_excludes = [
+    'tkinter',
+    'unittest',
+    'pydoc',
+    'doctest',
+    'test',
+    'PIL.ImageTk',
+    'numpy',
+    'scipy',
+    'pandas',
+    'matplotlib',
+]
+
 a = Analysis(
     ['main.py'],
     pathex=[],
@@ -26,12 +72,29 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=qt_excludes + python_excludes,
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
     noarchive=False,
 )
+
+# Remove unnecessary binaries to reduce size (conservative list)
+a.binaries = [x for x in a.binaries if not any(
+    exclude in x[0].lower() for exclude in [
+        'qt6designer',
+        'qt63d',
+        'qt6charts',
+        'qt6datavisualization',
+        'qt6multimedia',
+        'qt6bluetooth',
+        'qt6sensors',
+        'qt6serialport',
+        'qt6sql',
+        'qt6pdf',
+        'qt6virtualkeyboard',
+    ]
+)]
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
@@ -46,14 +109,14 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=False,  # Set to True for debugging
+    console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,  # Add icon path here if you have one
+    icon=None,
 )

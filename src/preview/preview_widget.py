@@ -2,9 +2,8 @@ import sys
 import shutil
 import tempfile
 from pathlib import Path
-from PySide6.QtWidgets import QWidget, QVBoxLayout
-from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtCore import QUrl, Qt
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from PySide6.QtCore import QUrl, Qt, QTimer
 
 from src.utils.markdown_converter import MarkdownConverter
 from src.styles.theme import Theme, ThemeColors
@@ -22,9 +21,31 @@ def get_resource_path(relative_path: str) -> Path:
 class PreviewWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.converter = MarkdownConverter()
         self.base_path = Path.cwd()
         self.colors = Theme.get_current()
+        self._is_initialized = False
+        self._pending_text = None
+        self.web_view = None
+        self.converter = None
+
+        self._setup_ui_placeholder()
+
+        # Defer heavy initialization
+        QTimer.singleShot(10, self._init_webview)
+
+    def _setup_ui_placeholder(self):
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+
+        self.loading_label = QLabel("Initializing preview...", self)
+        self.loading_label.setAlignment(Qt.AlignCenter)
+        self.layout.addWidget(self.loading_label)
+
+    def _init_webview(self):
+        from PySide6.QtWebEngineWidgets import QWebEngineView
+
+        # Initialize converter
+        self.converter = MarkdownConverter()
 
         # Create temp directory for mermaid rendering
         self.temp_dir = Path(tempfile.mkdtemp())
@@ -33,7 +54,22 @@ class PreviewWidget(QWidget):
         # Copy mermaid.js to temp directory
         self._setup_mermaid()
 
-        self._setup_ui()
+        # Replace placeholder with WebEngineView
+        self.web_view = QWebEngineView(self)
+        self.web_view.setContextMenuPolicy(Qt.NoContextMenu)
+
+        self.layout.removeWidget(self.loading_label)
+        self.loading_label.deleteLater()
+        self.layout.addWidget(self.web_view)
+
+        self._is_initialized = True
+
+        # Process any pending update
+        if self._pending_text is not None:
+            self.update_preview(self._pending_text)
+            self._pending_text = None
+        else:
+            self.update_preview("")
 
     def _setup_mermaid(self):
         """Copy mermaid.js to temp directory for local loading"""
@@ -42,18 +78,11 @@ class PreviewWidget(QWidget):
         if mermaid_src.exists():
             shutil.copy(mermaid_src, self.mermaid_js_path)
 
-    def _setup_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        self.web_view = QWebEngineView(self)
-        self.web_view.setContextMenuPolicy(Qt.NoContextMenu)
-        layout.addWidget(self.web_view)
-
-        # Initial empty content
-        self.update_preview("")
-
     def update_preview(self, markdown_text: str):
+        if not self._is_initialized:
+            self._pending_text = markdown_text
+            return
+
         html_content = self.converter.convert(markdown_text)
         has_mermaid = 'class="mermaid"' in html_content
         full_html = self._wrap_html(html_content, include_mermaid=has_mermaid)

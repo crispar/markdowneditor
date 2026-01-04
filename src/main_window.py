@@ -8,7 +8,6 @@ from PySide6.QtGui import QAction, QKeySequence
 
 from src.editor import EditorWidget
 from src.preview import PreviewWidget
-from src.export import PDFExporter
 from src.styles.theme import Theme
 
 MAX_RECENT_FILES = 10
@@ -244,6 +243,8 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(self, "Error", f"Failed to save file:\n{str(e)}")
 
     def _export_pdf(self):
+        from src.export import PDFExporter
+
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Export to PDF",

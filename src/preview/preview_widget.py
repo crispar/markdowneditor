@@ -58,10 +58,15 @@ class PreviewWidget(QWidget):
         has_mermaid = 'class="mermaid"' in html_content
         full_html = self._wrap_html(html_content, include_mermaid=has_mermaid)
 
-        # Always use setHtml for faster rendering and to avoid disk I/O
-        # Base URL is set to user's file path so relative images work
-        base_url = QUrl.fromLocalFile(str(self.base_path) + "/")
-        self.web_view.setHtml(full_html, base_url)
+        if has_mermaid:
+            # Save to temp file and load via file URL (allows external scripts)
+            with open(self.temp_html, 'w', encoding='utf-8') as f:
+                f.write(full_html)
+            self.web_view.setUrl(QUrl.fromLocalFile(str(self.temp_html)))
+        else:
+            # Use setHtml for faster rendering when no mermaid
+            base_url = QUrl.fromLocalFile(str(self.base_path) + "/")
+            self.web_view.setHtml(full_html, base_url)
 
     def _wrap_html(self, content: str, include_mermaid: bool = False) -> str:
         css = Theme.get_preview_css(self.colors)
@@ -71,9 +76,7 @@ class PreviewWidget(QWidget):
 
         # Only include mermaid.js when needed (local file)
         if include_mermaid and self.mermaid_js_path.exists():
-            # Use absolute path for mermaid script to allow loading from different base URL
-            script_url = QUrl.fromLocalFile(str(self.mermaid_js_path)).toString()
-            mermaid_head = f'<script src="{script_url}"></script>'
+            mermaid_head = f'<script src="mermaid.min.js"></script>'
             mermaid_init = f"""
     <script>
         mermaid.initialize({{

@@ -116,6 +116,10 @@ class PDFExporter(QObject):
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
     }}
+    .highlight, pre, code {{
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }}
 }}
 
 body {{
@@ -181,6 +185,30 @@ pre {{
 pre code {{
     background-color: transparent;
     padding: 0;
+    font-size: 9pt;
+    line-height: 1.45;
+}}
+
+/* Monokai syntax highlighting - matches preview */
+.highlight {{
+    background: #272822;
+    color: #f8f8f2;
+    border-radius: 6px;
+    padding: 16px;
+    overflow-x: auto;
+    page-break-inside: avoid;
+}}
+
+.highlight pre {{
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+}}
+
+.highlight code {{
+    background: transparent;
+    color: #f8f8f2;
     font-size: 9pt;
     line-height: 1.45;
 }}

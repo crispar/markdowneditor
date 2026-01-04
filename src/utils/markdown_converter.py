@@ -55,7 +55,11 @@ class MarkdownConverter:
 
         return html
 
-    @staticmethod
-    def get_code_highlight_css() -> str:
-        formatter = HtmlFormatter(style='monokai')
-        return formatter.get_style_defs('.highlight')
+    _highlight_css_cache = None
+
+    @classmethod
+    def get_code_highlight_css(cls) -> str:
+        if cls._highlight_css_cache is None:
+            formatter = HtmlFormatter(style='monokai')
+            cls._highlight_css_cache = formatter.get_style_defs('.highlight')
+        return cls._highlight_css_cache

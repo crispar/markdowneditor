@@ -11,7 +11,7 @@ class MarkdownEditorApp:
     def __init__(self):
         self.app = QApplication(sys.argv)
         self._configure_app()
-        self.window = MainWindow()
+        self.window = MainWindow(self)
 
     def _configure_app(self):
         self.app.setApplicationName("Markdown Editor")
@@ -28,12 +28,10 @@ class MarkdownEditorApp:
 
         # Apply dark palette if system is in dark mode
         if ThemeDetector.is_dark_mode():
-            self._apply_dark_palette()
+            self.apply_dark_palette()
 
-    def _apply_dark_palette(self):
+    def apply_dark_palette(self):
         palette = QPalette()
-
-        # Base colors
         palette.setColor(QPalette.Window, QColor(30, 30, 30))
         palette.setColor(QPalette.WindowText, QColor(212, 212, 212))
         palette.setColor(QPalette.Base, QColor(37, 37, 38))
@@ -47,13 +45,13 @@ class MarkdownEditorApp:
         palette.setColor(QPalette.Link, QColor(86, 156, 214))
         palette.setColor(QPalette.Highlight, QColor(38, 79, 120))
         palette.setColor(QPalette.HighlightedText, QColor(255, 255, 255))
-
-        # Disabled colors
         palette.setColor(QPalette.Disabled, QPalette.WindowText, QColor(127, 127, 127))
         palette.setColor(QPalette.Disabled, QPalette.Text, QColor(127, 127, 127))
         palette.setColor(QPalette.Disabled, QPalette.ButtonText, QColor(127, 127, 127))
-
         self.app.setPalette(palette)
+
+    def apply_light_palette(self):
+        self.app.setPalette(self.app.style().standardPalette())
 
     def run(self) -> int:
         self.window.show()

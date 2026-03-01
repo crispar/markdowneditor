@@ -13,6 +13,7 @@ class ThemeColors:
     button_hover: str
     selection: str
     accent: str
+    current_line: str = "#e8f0fe"
 
 
 class Theme:
@@ -26,6 +27,7 @@ class Theme:
         button_hover="#e1e4e8",
         selection="#0366d6",
         accent="#0066cc",
+        current_line="#e8f0fe",
     )
 
     DARK = ThemeColors(
@@ -38,13 +40,31 @@ class Theme:
         button_hover="#3c3c3c",
         selection="#264f78",
         accent="#569cd6",
+        current_line="#2a2d2e",
     )
 
-    @staticmethod
-    def get_current() -> ThemeColors:
+    _current_mode = None  # None means follow system
+
+    @classmethod
+    def get_current(cls) -> ThemeColors:
+        if cls._current_mode == "dark":
+            return cls.DARK
+        elif cls._current_mode == "light":
+            return cls.LIGHT
+        # Follow system
         if ThemeDetector.is_dark_mode():
-            return Theme.DARK
-        return Theme.LIGHT
+            return cls.DARK
+        return cls.LIGHT
+
+    @classmethod
+    def set_mode(cls, mode: str):
+        """Set theme mode: 'light', 'dark', or 'system'."""
+        cls._current_mode = None if mode == "system" else mode
+
+    @classmethod
+    def is_dark(cls) -> bool:
+        colors = cls.get_current()
+        return colors.background == "#1e1e1e"
 
     @staticmethod
     def get_stylesheet(colors: ThemeColors) -> str:
@@ -113,10 +133,45 @@ class Theme:
         QLabel {{
             color: {colors.foreground};
         }}
+        QLineEdit {{
+            background-color: {colors.editor_bg};
+            color: {colors.editor_fg};
+            border: 1px solid {colors.border};
+            padding: 4px;
+            border-radius: 3px;
+        }}
+        QPushButton {{
+            background-color: {colors.toolbar_bg};
+            color: {colors.foreground};
+            border: 1px solid {colors.border};
+            padding: 4px 8px;
+            border-radius: 3px;
+        }}
+        QPushButton:hover {{
+            background-color: {colors.button_hover};
+        }}
+        QCheckBox {{
+            color: {colors.foreground};
+        }}
+        QTreeWidget {{
+            background-color: {colors.editor_bg};
+            color: {colors.editor_fg};
+            border: 1px solid {colors.border};
+        }}
+        QTreeWidget::item:selected {{
+            background-color: {colors.selection};
+        }}
+        QTreeWidget::item:hover {{
+            background-color: {colors.button_hover};
+        }}
         """
 
     @staticmethod
     def get_preview_css(colors: ThemeColors) -> str:
+        is_dark = colors.background == "#1e1e1e"
+        highlight_bg = "#272822" if is_dark else "#f6f8fa"
+        highlight_fg = "#f8f8f2" if is_dark else "#24292e"
+
         return f"""
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Malgun Gothic', 'Segoe UI', Helvetica, Arial, sans-serif;
@@ -164,8 +219,8 @@ class Theme:
             line-height: 1.45;
         }}
         .highlight {{
-            background: #272822;
-            color: #f8f8f2;
+            background: {highlight_bg};
+            color: {highlight_fg};
             border-radius: 6px;
             padding: 16px;
             overflow-x: auto;
@@ -177,7 +232,7 @@ class Theme:
             border: none;
         }}
         .highlight code {{
-            color: #f8f8f2;
+            color: {highlight_fg};
         }}
         blockquote {{
             margin: 0;

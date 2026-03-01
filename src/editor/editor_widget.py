@@ -17,6 +17,7 @@ from src.editor.toolbar import EditorToolbar
 from src.editor.find_replace import FindReplaceWidget
 from src.editor.syntax_highlighter import MarkdownHighlighter
 from src.utils.image_handler import ImageHandler
+from src.constants import DEBOUNCE_INTERVAL, IMAGE_EXTENSIONS, MARKDOWN_EXTENSIONS
 
 
 class EditorWidget(QWidget):
@@ -28,7 +29,7 @@ class EditorWidget(QWidget):
         self.image_handler = ImageHandler()
         self._debounce_timer = QTimer()
         self._debounce_timer.setSingleShot(True)
-        self._debounce_timer.setInterval(300)
+        self._debounce_timer.setInterval(DEBOUNCE_INTERVAL)
         self._debounce_timer.timeout.connect(self._emit_text_changed)
         self._zoom_level = 0  # relative to base size 12
 
@@ -202,7 +203,7 @@ class EditorWidget(QWidget):
         if mime.hasUrls():
             for url in mime.urls():
                 path = url.toLocalFile().lower()
-                if any(path.endswith(ext) for ext in ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp', '.md', '.markdown')):
+                if any(path.endswith(ext) for ext in IMAGE_EXTENSIONS + MARKDOWN_EXTENSIONS):
                     event.acceptProposedAction()
                     return True
         return False
@@ -216,7 +217,7 @@ class EditorWidget(QWidget):
             file_path = url.toLocalFile()
             lower_path = file_path.lower()
 
-            if any(lower_path.endswith(ext) for ext in ('.md', '.markdown')):
+            if any(lower_path.endswith(ext) for ext in MARKDOWN_EXTENSIONS):
                 # Signal parent to open the file
                 main_window = self.window()
                 if hasattr(main_window, '_open_dropped_file'):
@@ -224,7 +225,7 @@ class EditorWidget(QWidget):
                 event.acceptProposedAction()
                 return True
 
-            if any(lower_path.endswith(ext) for ext in ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')):
+            if any(lower_path.endswith(ext) for ext in IMAGE_EXTENSIONS):
                 self.image_handler.ensure_images_dir()
                 src = Path(file_path)
                 filename = src.name
@@ -529,3 +530,51 @@ class EditorWidget(QWidget):
             self.editor.setTextCursor(cursor)
             self.editor.centerCursor()
             self.editor.setFocus()
+
+    # --- Facade methods (encapsulation) ---
+    def undo(self):
+        self.editor.undo()
+
+    def redo(self):
+        self.editor.redo()
+
+    def cut(self):
+        self.editor.cut()
+
+    def copy(self):
+        self.editor.copy()
+
+    def paste(self):
+        self.editor.paste()
+
+    def select_all(self):
+        self.editor.selectAll()
+
+    def show_find(self):
+        self._show_find()
+
+    def show_replace(self):
+        self._show_replace()
+
+    def get_font(self):
+        return self.editor.font()
+
+    def set_font(self, font):
+        self.editor.setFont(font)
+
+    def connect_text_changed(self, slot):
+        self.editor.textChanged.connect(slot)
+
+    def connect_cursor_changed(self, slot):
+        self.editor.cursorPositionChanged.connect(slot)
+
+    def connect_scroll_changed(self, slot):
+        self.editor.verticalScrollBar().valueChanged.connect(slot)
+
+    def get_scroll_ratio(self):
+        scrollbar = self.editor.verticalScrollBar()
+        maximum = scrollbar.maximum()
+        return scrollbar.value() / maximum if maximum > 0 else 0.0
+
+    def set_dark_mode(self, is_dark):
+        self.highlighter.set_dark_mode(is_dark)

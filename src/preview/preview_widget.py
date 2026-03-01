@@ -142,10 +142,18 @@ class PreviewWidget(QWidget):
     def set_theme(self, colors: ThemeColors):
         self.colors = colors
 
-    def get_html(self) -> str:
-        return self.web_view.page().toHtml(lambda html: html)
-
     def get_full_html(self, markdown_text: str) -> str:
         html_content = self.converter.convert(markdown_text)
         has_mermaid = 'class="mermaid"' in html_content
         return self._wrap_html(html_content, include_mermaid=has_mermaid)
+
+    def zoom_in(self):
+        self.web_view.setZoomFactor(self.web_view.zoomFactor() + 0.1)
+
+    def zoom_out(self):
+        factor = self.web_view.zoomFactor()
+        if factor > 0.3:
+            self.web_view.setZoomFactor(factor - 0.1)
+
+    def zoom_reset(self):
+        self.web_view.setZoomFactor(1.0)

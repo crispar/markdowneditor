@@ -1,40 +1,64 @@
 # Markdown Editor
 
-PySide6를 기반으로 제작된 현대적인 마크다운(Markdown) 에디터입니다. 실시간 미리보기와 PDF 내보내기 기능을 지원하며, 직관적인 사용자 인터페이스를 제공합니다.
+PySide6 기반의 현대적인 마크다운 에디터. 실시간 미리보기, 구문 하이라이팅, PDF/HTML 내보내기를 지원합니다.
 
 ## 주요 기능
 
-*   **실시간 미리보기 (Live Preview)**: 작성 중인 마크다운 내용을 오른쪽 창에서 실시간으로 확인할 수 있습니다.
-*   **구문 강조 (Syntax Highlighting)**: 코드 블록에 대한 구문 강조 기능을 제공하여 가독성을 높였습니다 (Pygments 사용).
-*   **Mermaid 다이어그램 지원**: ````mermaid` 블록을 사용하여 플로우차트, 시퀀스 다이어그램 등 다양한 다이어그램을 그릴 수 있습니다.
-*   **PDF 내보내기**: 작성한 문서를 PDF 파일로 저장할 수 있습니다. 한국어 폰트('맑은 고딕', 'Noto Sans KR')를 지원하여 한글이 깨지지 않고 올바르게 출력됩니다.
-*   **이미지 지원**:
-    *   클립보드 이미지 붙여넣기 (`Ctrl+V`) 지원
-    *   이미지 URL 붙여넣기 시 자동 다운로드 및 삽입
-    *   로컬 이미지 파일 삽입 지원
-*   **테마 지원**: 시스템 설정에 따라 다크 모드와 라이트 모드를 자동으로 전환합니다.
-*   **최근 파일 목록**: 최근에 열거나 저장한 파일 목록을 제공하여 빠르게 다시 열 수 있습니다.
-*   **편리한 툴바 및 단축키**: 굵게, 기울임, 제목, 코드, 링크, 목록 등 자주 사용하는 서식을 툴바 버튼이나 단축키로 쉽게 적용할 수 있습니다.
+### 편집
 
-## 설치 및 실행 방법
+- 실시간 프리뷰 및 스크롤 동기화
+- 마크다운 구문 하이라이팅
+- 찾기/바꾸기 (Ctrl+F / Ctrl+H)
+- 자동 들여쓰기 (목록/인용)
+- 포맷 토글 (Bold/Italic 적용-해제)
+- 현재줄 하이라이트
+- 단어/글자 수 표시
+
+### 문서 관리
+
+- 변경 감지 (제목에 `*` 표시)
+- 자동저장 (30초)
+- 최근 파일 목록
+- 창 상태 저장/복원
+
+### 보기
+
+- 에디터/프리뷰/분할 뷰 전환
+- 다크/라이트 테마
+- 줌 인/아웃
+- 전체화면 (F11)
+- 아웃라인(목차) 패널
+
+### 내보내기
+
+- PDF (한국어 폰트 지원: 맑은 고딕, Noto Sans KR)
+- HTML
+
+### 이미지
+
+- 클립보드 붙여넣기
+- URL 자동 다운로드
+- 드래그앤드롭
+
+### 고급
+
+- Mermaid 다이어그램
+- 테이블/체크리스트 삽입
+- 코드 블록 언어 선택
+
+## 설치 및 실행
 
 ### 요구 사항
 
-*   Python 3.8 이상
+- Python 3.8+
+- PySide6 6.2.4
+- markdown >= 3.3.0
+- Pygments >= 2.10.0
 
-### 설치
-
-필요한 라이브러리를 설치합니다.
+### 설치 및 실행
 
 ```bash
 pip install -r requirements.txt
-```
-
-### 실행
-
-다음 명령어로 에디터를 실행합니다.
-
-```bash
 python main.py
 ```
 
@@ -63,29 +87,106 @@ python main.py
 PyInstaller가 설치된 환경에서 다음 명령어를 실행합니다.
 
 ```bash
-pyinstaller MarkdownEditor.spec
+pyinstaller --clean MarkdownEditor.spec
 ```
 
 빌드가 완료되면 `dist/MarkdownEditor.exe` 파일이 생성됩니다.
 
-## 사용 방법
+## 단축키
 
-### 단축키
+### 파일
 
-*   **파일**
-    *   새 파일: `Ctrl+N`
-    *   열기: `Ctrl+O`
-    *   저장: `Ctrl+S`
-    *   다른 이름으로 저장: `Ctrl+Shift+S`
-    *   PDF로 내보내기: `Ctrl+Shift+E`
-    *   종료: `Ctrl+Q`
-*   **편집**
-    *   실행 취소: `Ctrl+Z`
-    *   다시 실행: `Ctrl+Y` 또는 `Ctrl+Shift+Z`
-    *   잘라내기: `Ctrl+X`
-    *   복사: `Ctrl+C`
-    *   붙여넣기: `Ctrl+V` (이미지 포함)
-    *   전체 선택: `Ctrl+A`
+| 단축키 | 기능 |
+|--------|------|
+| Ctrl+N | 새 파일 |
+| Ctrl+O | 열기 |
+| Ctrl+S | 저장 |
+| Ctrl+Shift+S | 다른 이름으로 저장 |
+| Ctrl+Shift+E | PDF 내보내기 |
+| Ctrl+Q | 종료 |
+
+### 편집
+
+| 단축키 | 기능 |
+|--------|------|
+| Ctrl+Z | 실행 취소 |
+| Ctrl+Y | 다시 실행 |
+| Ctrl+X | 잘라내기 |
+| Ctrl+C | 복사 |
+| Ctrl+V | 붙여넣기 |
+| Ctrl+A | 전체 선택 |
+| Ctrl+F | 찾기 |
+| Ctrl+H | 바꾸기 |
+
+### 서식
+
+| 단축키 | 기능 |
+|--------|------|
+| Ctrl+B | 굵게 |
+| Ctrl+I | 기울임 |
+| Ctrl+Shift+X | 취소선 |
+| Ctrl+1 | 제목 1 |
+| Ctrl+2 | 제목 2 |
+| Ctrl+3 | 제목 3 |
+| Ctrl+` | 인라인 코드 |
+| Ctrl+Shift+K | 코드 블록 |
+| Ctrl+Shift+Q | 인용 |
+| Ctrl+Shift+U | 글머리 목록 |
+| Ctrl+Shift+L | 번호 목록 |
+| Ctrl+Shift+T | 체크리스트 |
+| Ctrl+K | 링크 |
+| Ctrl+Shift+I | 이미지 |
+| Ctrl+Shift+H | 수평선 |
+
+### 보기
+
+| 단축키 | 기능 |
+|--------|------|
+| Ctrl+Shift+1 | 에디터만 |
+| Ctrl+Shift+2 | 프리뷰만 |
+| Ctrl+Shift+3 | 분할 뷰 |
+| Ctrl+Shift+O | 아웃라인 |
+| Ctrl+= | 줌 인 |
+| Ctrl+- | 줌 아웃 |
+| Ctrl+0 | 줌 초기화 |
+| F11 | 전체화면 |
+
+## 프로젝트 구조
+
+```
+MarkdownEditor/
+├── main.py
+├── src/
+│   ├── app.py
+│   ├── main_window.py
+│   ├── outline_widget.py
+│   ├── editor/
+│   │   ├── editor_widget.py
+│   │   ├── toolbar.py
+│   │   ├── find_replace.py
+│   │   └── syntax_highlighter.py
+│   ├── preview/
+│   │   └── preview_widget.py
+│   ├── export/
+│   │   └── pdf_exporter.py
+│   ├── styles/
+│   │   └── theme.py
+│   └── utils/
+│       ├── image_handler.py
+│       ├── markdown_converter.py
+│       └── theme_detector.py
+├── tests/
+├── resources/
+└── images/
+```
+
+## 테스트
+
+```bash
+pytest tests/ -v
+```
+
+현재 139+ 테스트가 포함되어 있습니다.
 
 ## 라이선스
 

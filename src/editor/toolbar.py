@@ -103,8 +103,8 @@ class EditorToolbar(QToolBar):
         self._add_button(bullet_action)
 
         numbered_action = QAction("1.", self)
-        numbered_action.setToolTip("Numbered List (Ctrl+Shift+O)")
-        numbered_action.setShortcut(QKeySequence("Ctrl+Shift+O"))
+        numbered_action.setToolTip("Numbered List (Ctrl+Shift+L)")
+        numbered_action.setShortcut(QKeySequence("Ctrl+Shift+L"))
         numbered_action.triggered.connect(self.numbered_list_clicked.emit)
         self._add_button(numbered_action)
 

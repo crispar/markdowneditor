@@ -15,21 +15,16 @@ from src.preview import PreviewWidget
 from src.export import PDFExporter
 from src.styles.theme import Theme, ThemeColors
 from src.outline_widget import OutlineWidget
-
-MAX_RECENT_FILES = 10
-AUTOSAVE_INTERVAL = 30000  # 30 seconds
+from src.file_manager import FileManager
+from src.constants import AUTOSAVE_INTERVAL
 
 
 class MainWindow(QMainWindow):
     def __init__(self, app_instance=None):
         super().__init__()
         self.app_instance = app_instance
-        self.current_file = None
-        self.base_path = Path.cwd()
         self.settings = QSettings("MarkdownEditor", "MarkdownEditor")
-        self.recent_files = self._load_recent_files()
-        self._dirty = False
-        self._saved_text = ""  # text at last save
+        self.file_manager = FileManager(self.settings)
 
         self._setup_ui()
         self._setup_menubar()
@@ -39,6 +34,47 @@ class MainWindow(QMainWindow):
         self._connect_signals()
         self._setup_autosave()
         self._restore_state()
+
+    # --- Property shims for backward compatibility (tests access these directly) ---
+    @property
+    def current_file(self):
+        return self.file_manager.current_file
+
+    @current_file.setter
+    def current_file(self, value):
+        self.file_manager.current_file = value
+
+    @property
+    def base_path(self):
+        return self.file_manager.base_path
+
+    @base_path.setter
+    def base_path(self, value):
+        self.file_manager.base_path = value
+
+    @property
+    def _dirty(self):
+        return self.file_manager._dirty
+
+    @_dirty.setter
+    def _dirty(self, value):
+        self.file_manager._dirty = value
+
+    @property
+    def _saved_text(self):
+        return self.file_manager._saved_text
+
+    @_saved_text.setter
+    def _saved_text(self, value):
+        self.file_manager._saved_text = value
+
+    @property
+    def recent_files(self):
+        return self.file_manager.recent_files
+
+    @recent_files.setter
+    def recent_files(self, value):
+        self.file_manager.recent_files = value
 
     def _setup_ui(self):
         self.setWindowTitle("Markdown Editor")
@@ -124,48 +160,48 @@ class MainWindow(QMainWindow):
 
         undo_action = QAction("Undo", self)
         undo_action.setShortcut(QKeySequence.Undo)
-        undo_action.triggered.connect(self.editor.editor.undo)
+        undo_action.triggered.connect(self.editor.undo)
         edit_menu.addAction(undo_action)
 
         redo_action = QAction("Redo", self)
         redo_action.setShortcut(QKeySequence.Redo)
-        redo_action.triggered.connect(self.editor.editor.redo)
+        redo_action.triggered.connect(self.editor.redo)
         edit_menu.addAction(redo_action)
 
         edit_menu.addSeparator()
 
         cut_action = QAction("Cut", self)
         cut_action.setShortcut(QKeySequence.Cut)
-        cut_action.triggered.connect(self.editor.editor.cut)
+        cut_action.triggered.connect(self.editor.cut)
         edit_menu.addAction(cut_action)
 
         copy_action = QAction("Copy", self)
         copy_action.setShortcut(QKeySequence.Copy)
-        copy_action.triggered.connect(self.editor.editor.copy)
+        copy_action.triggered.connect(self.editor.copy)
         edit_menu.addAction(copy_action)
 
         paste_action = QAction("Paste", self)
         paste_action.setShortcut(QKeySequence.Paste)
-        paste_action.triggered.connect(self.editor.editor.paste)
+        paste_action.triggered.connect(self.editor.paste)
         edit_menu.addAction(paste_action)
 
         edit_menu.addSeparator()
 
         select_all_action = QAction("Select All", self)
         select_all_action.setShortcut(QKeySequence.SelectAll)
-        select_all_action.triggered.connect(self.editor.editor.selectAll)
+        select_all_action.triggered.connect(self.editor.select_all)
         edit_menu.addAction(select_all_action)
 
         edit_menu.addSeparator()
 
         find_action = QAction("Find...", self)
         find_action.setShortcut(QKeySequence.Find)
-        find_action.triggered.connect(self.editor._show_find)
+        find_action.triggered.connect(self.editor.show_find)
         edit_menu.addAction(find_action)
 
         replace_action = QAction("Replace...", self)
         replace_action.setShortcut(QKeySequence("Ctrl+H"))
-        replace_action.triggered.connect(self.editor._show_replace)
+        replace_action.triggered.connect(self.editor.show_replace)
         edit_menu.addAction(replace_action)
 
         # ===== Format menu =====
@@ -382,7 +418,7 @@ class MainWindow(QMainWindow):
 
         # Update syntax highlighter theme
         is_dark = Theme.is_dark()
-        self.editor.highlighter.set_dark_mode(is_dark)
+        self.editor.set_dark_mode(is_dark)
 
         # Update theme check marks
         if hasattr(self, 'light_theme_action'):
@@ -396,15 +432,15 @@ class MainWindow(QMainWindow):
         self.editor.text_changed.connect(self.preview.update_preview)
 
         # Update status bar
-        self.editor.editor.textChanged.connect(self._update_char_count)
-        self.editor.editor.textChanged.connect(self._update_word_count)
-        self.editor.editor.cursorPositionChanged.connect(self._update_cursor_pos)
+        self.editor.connect_text_changed(self._update_char_count)
+        self.editor.connect_text_changed(self._update_word_count)
+        self.editor.connect_cursor_changed(self._update_cursor_pos)
 
         # Dirty flag
-        self.editor.editor.textChanged.connect(self._mark_dirty)
+        self.editor.connect_text_changed(self._mark_dirty)
 
         # Scroll sync
-        self.editor.editor.verticalScrollBar().valueChanged.connect(self._sync_scroll)
+        self.editor.connect_scroll_changed(self._sync_scroll)
 
         # Outline update
         self.editor.text_changed.connect(self.outline.update_outline)
@@ -424,25 +460,20 @@ class MainWindow(QMainWindow):
         self._autosave_timer.start()
 
     def _autosave(self):
-        if self._dirty and self.current_file:
+        if self.file_manager.is_dirty and self.current_file:
             self._write_file(self.current_file)
-            self._dirty = False
-            self._saved_text = self.editor.get_text()
+            self.file_manager.mark_saved(self.editor.get_text())
             self._update_title()
             self.statusbar.showMessage("Auto-saved", 2000)
 
     def _mark_dirty(self):
-        if not self._dirty:
-            current_text = self.editor.get_text()
-            if current_text != self._saved_text:
-                self._dirty = True
-                self._update_title()
+        current_text = self.editor.get_text()
+        if self.file_manager.mark_dirty(current_text):
+            self._update_title()
 
     def _sync_scroll(self):
-        scrollbar = self.editor.editor.verticalScrollBar()
-        maximum = scrollbar.maximum()
-        if maximum > 0:
-            ratio = scrollbar.value() / maximum
+        ratio = self.editor.get_scroll_ratio()
+        if ratio > 0.0:
             self.preview.scroll_to_ratio(ratio)
 
     # ===== Status bar updates =====
@@ -462,19 +493,12 @@ class MainWindow(QMainWindow):
     # ===== File operations =====
 
     def _get_initial_dir(self) -> str:
-        if self.current_file:
-            return str(self.current_file.parent)
-        last_dir = self.settings.value("last_directory", "")
-        if last_dir and Path(last_dir).exists():
-            return last_dir
-        return ""
+        return self.file_manager.get_initial_dir()
 
     def _new_file(self):
         if self._check_unsaved_changes():
             self.editor.set_text("")
-            self.current_file = None
-            self._dirty = False
-            self._saved_text = ""
+            self.file_manager.new_file()
             self._update_title()
 
     def _open_file(self):
@@ -493,19 +517,13 @@ class MainWindow(QMainWindow):
 
     def _load_file(self, file_path: str):
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
+            content = self.file_manager.load_file(file_path)
             self.editor.set_text(content)
-            self.current_file = Path(file_path)
-            self.base_path = self.current_file.parent
             self.editor.set_base_path(str(self.base_path))
             self.preview.set_base_path(str(self.base_path))
-            self._dirty = False
-            self._saved_text = content
             self._update_title()
-            self._add_recent_file(file_path)
-            self.settings.setValue("last_directory", str(self.current_file.parent))
-        except Exception as e:
+            self._update_recent_menu()
+        except OSError as e:
             QMessageBox.critical(self, "Error", f"Failed to open file:\n{str(e)}")
 
     def _open_dropped_file(self, file_path: str):
@@ -516,8 +534,7 @@ class MainWindow(QMainWindow):
     def _save_file(self):
         if self.current_file:
             self._write_file(self.current_file)
-            self._dirty = False
-            self._saved_text = self.editor.get_text()
+            self.file_manager.mark_saved(self.editor.get_text())
             self._update_title()
         else:
             self._save_file_as()
@@ -534,21 +551,19 @@ class MainWindow(QMainWindow):
             if not file_path.endswith('.md'):
                 file_path += '.md'
             self._write_file(Path(file_path))
-            self.current_file = Path(file_path)
-            self.base_path = self.current_file.parent
+            self.file_manager.current_file = Path(file_path)
+            self.file_manager.base_path = self.file_manager.current_file.parent
             self.editor.set_base_path(str(self.base_path))
             self.preview.set_base_path(str(self.base_path))
-            self._dirty = False
-            self._saved_text = self.editor.get_text()
+            self.file_manager.mark_saved(self.editor.get_text())
             self._update_title()
             self.settings.setValue("last_directory", str(self.current_file.parent))
 
-    def _write_file(self, path: Path):
+    def _write_file(self, path):
         try:
-            with open(path, 'w', encoding='utf-8') as f:
-                f.write(self.editor.get_text())
+            self.file_manager.write_file(path, self.editor.get_text())
             self.statusbar.showMessage("File saved", 3000)
-        except Exception as e:
+        except OSError as e:
             QMessageBox.critical(self, "Error", f"Failed to save file:\n{str(e)}")
 
     # ===== Export =====
@@ -621,18 +636,13 @@ class MainWindow(QMainWindow):
                 subprocess.run(["open", file_path])
             else:
                 subprocess.run(["xdg-open", file_path])
-        except Exception:
-            pass
+        except Exception as e:
+            self.statusbar.showMessage(f"Could not open file: {e}", 5000)
 
     # ===== Title =====
 
     def _update_title(self):
-        title = "Markdown Editor"
-        if self.current_file:
-            title = f"{self.current_file.name} - {title}"
-        if self._dirty:
-            title = f"* {title}"
-        self.setWindowTitle(title)
+        self.setWindowTitle(self.file_manager.get_title())
 
     def _check_unsaved_changes(self) -> bool:
         if self._dirty:
@@ -682,25 +692,21 @@ class MainWindow(QMainWindow):
 
     def _zoom_in(self):
         self.editor.zoom_in()
-        self.preview.web_view.setZoomFactor(
-            self.preview.web_view.zoomFactor() + 0.1
-        )
+        self.preview.zoom_in()
 
     def _zoom_out(self):
         self.editor.zoom_out()
-        factor = self.preview.web_view.zoomFactor()
-        if factor > 0.3:
-            self.preview.web_view.setZoomFactor(factor - 0.1)
+        self.preview.zoom_out()
 
     def _zoom_reset(self):
         self.editor.zoom_reset()
-        self.preview.web_view.setZoomFactor(1.0)
+        self.preview.zoom_reset()
 
     def _change_font(self):
-        current_font = self.editor.editor.font()
+        current_font = self.editor.get_font()
         font, ok = QFontDialog.getFont(current_font, self, "Select Editor Font")
         if ok:
-            self.editor.editor.setFont(font)
+            self.editor.set_font(font)
             self.settings.setValue("editor_font_family", font.family())
             self.settings.setValue("editor_font_size", font.pointSize())
 
@@ -765,29 +771,16 @@ class MainWindow(QMainWindow):
         font_family = self.settings.value("editor_font_family")
         font_size = self.settings.value("editor_font_size")
         if font_family:
-            font = self.editor.editor.font()
+            font = self.editor.get_font()
             font.setFamily(font_family)
             if font_size:
                 font.setPointSize(int(font_size))
-            self.editor.editor.setFont(font)
+            self.editor.set_font(font)
 
     # ===== Recent Files Management =====
 
-    def _load_recent_files(self):
-        files = self.settings.value("recent_files", [])
-        if files is None:
-            return []
-        return [f for f in files if Path(f).exists()]
-
-    def _save_recent_files(self):
-        self.settings.setValue("recent_files", self.recent_files)
-
     def _add_recent_file(self, file_path: str):
-        if file_path in self.recent_files:
-            self.recent_files.remove(file_path)
-        self.recent_files.insert(0, file_path)
-        self.recent_files = self.recent_files[:MAX_RECENT_FILES]
-        self._save_recent_files()
+        self.file_manager.add_recent_file(file_path)
         self._update_recent_menu()
 
     def _update_recent_menu(self):
@@ -814,14 +807,13 @@ class MainWindow(QMainWindow):
 
         if not Path(file_path).exists():
             QMessageBox.warning(self, "File Not Found", f"File no longer exists:\n{file_path}")
-            self.recent_files.remove(file_path)
-            self._save_recent_files()
+            self.file_manager.recent_files.remove(file_path)
+            self.file_manager.save_recent_files()
             self._update_recent_menu()
             return
 
         self._load_file(file_path)
 
     def _clear_recent_files(self):
-        self.recent_files = []
-        self._save_recent_files()
+        self.file_manager.clear_recent_files()
         self._update_recent_menu()

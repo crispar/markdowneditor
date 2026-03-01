@@ -119,9 +119,3 @@ class TestImageHandler:
         data = b'RIFF' + b'\x00' * 4 + b'WAVE' + b'\x00' * 100
         assert self.handler._detect_image_type(data) is None
 
-    # === Path resolution ===
-
-    def test_resolve_image_path(self):
-        result = self.handler.resolve_image_path("images/test.png")
-        expected = self.handler.base_path / "images/test.png"
-        assert result == expected

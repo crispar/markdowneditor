@@ -1,5 +1,4 @@
 import sys
-import subprocess
 from enum import Enum
 
 
@@ -26,7 +25,7 @@ class ThemeDetector:
             value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
             winreg.CloseKey(key)
             return ThemeMode.LIGHT if value == 1 else ThemeMode.DARK
-        except Exception:
+        except (FileNotFoundError, OSError, ImportError):
             return ThemeMode.LIGHT
 
     @staticmethod

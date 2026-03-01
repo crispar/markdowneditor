@@ -8,10 +8,11 @@ from typing import Optional
 from PySide6.QtCore import QMimeData
 from PySide6.QtGui import QImage
 
+from src.constants import IMAGE_EXTENSIONS
+
 
 class ImageHandler:
-    # Supported image extensions
-    IMAGE_EXTENSIONS = ('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp')
+    IMAGE_EXTENSIONS = IMAGE_EXTENSIONS
 
     # URL pattern for images
     IMAGE_URL_PATTERN = re.compile(
@@ -113,16 +114,6 @@ class ImageHandler:
 
         return None
 
-    def _get_extension_from_url(self, url: str) -> str:
-        # Remove query parameters
-        clean_url = url.split('?')[0]
-
-        for ext in self.IMAGE_EXTENSIONS:
-            if clean_url.lower().endswith(ext):
-                return ext
-
-        return '.png'  # Default
-
     def is_image_url(self, text: str) -> bool:
         text = text.strip()
 
@@ -149,9 +140,6 @@ class ImageHandler:
 
     def get_markdown_image_syntax(self, image_path: str, alt_text: str = "image") -> str:
         return f"![{alt_text}]({image_path})"
-
-    def resolve_image_path(self, relative_path: str) -> Path:
-        return self.base_path / relative_path
 
     def set_base_path(self, path: str):
         self.base_path = Path(path)

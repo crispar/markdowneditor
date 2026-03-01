@@ -96,7 +96,7 @@ class ImageHandler:
             return f"images/{filename}"
 
         except Exception as e:
-            print(f"Failed to download image: {e}")
+            self.last_error = f"Failed to download image: {e}"
             return None
 
     def _detect_image_type(self, data: bytes) -> Optional[str]:

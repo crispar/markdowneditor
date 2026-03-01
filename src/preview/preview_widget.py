@@ -13,9 +13,7 @@ from src.styles.theme import Theme, ThemeColors
 def get_resource_path(relative_path: str) -> Path:
     """Get path to resource, works for dev and PyInstaller"""
     if hasattr(sys, '_MEIPASS'):
-        # Running as PyInstaller bundle
         return Path(sys._MEIPASS) / relative_path
-    # Running in development
     return Path(__file__).parent.parent.parent / relative_path
 
 
@@ -25,6 +23,8 @@ class PreviewWidget(QWidget):
         self.converter = MarkdownConverter()
         self.base_path = Path.cwd()
         self.colors = Theme.get_current()
+        self._scroll_position = 0
+        self._pending_html = None
 
         # Create temp directory for mermaid rendering
         self.temp_dir = Path(tempfile.mkdtemp())
@@ -32,7 +32,6 @@ class PreviewWidget(QWidget):
 
         # Copy mermaid.js to temp directory
         self._setup_mermaid()
-
         self._setup_ui()
 
     def _setup_mermaid(self):
@@ -56,25 +55,50 @@ class PreviewWidget(QWidget):
     def update_preview(self, markdown_text: str):
         html_content = self.converter.convert(markdown_text)
         has_mermaid = 'class="mermaid"' in html_content
-        full_html = self._wrap_html(html_content, include_mermaid=has_mermaid)
+
+        # Inject scroll preservation script into HTML
+        scroll_script = """
+    <script>
+        // Save scroll position before content updates
+        var __savedScrollY = 0;
+        try { __savedScrollY = window.__lastScrollY || 0; } catch(e) {}
+        window.addEventListener('load', function() {
+            if (__savedScrollY > 0) {
+                window.scrollTo(0, __savedScrollY);
+            }
+        });
+        window.addEventListener('scroll', function() {
+            window.__lastScrollY = window.scrollY;
+        });
+    </script>"""
+
+        full_html = self._wrap_html(html_content, include_mermaid=has_mermaid,
+                                     extra_scripts=scroll_script)
 
         if has_mermaid:
-            # Save to temp file and load via file URL (allows external scripts)
             with open(self.temp_html, 'w', encoding='utf-8') as f:
                 f.write(full_html)
             self.web_view.setUrl(QUrl.fromLocalFile(str(self.temp_html)))
         else:
-            # Use setHtml for faster rendering when no mermaid
             base_url = QUrl.fromLocalFile(str(self.base_path) + "/")
             self.web_view.setHtml(full_html, base_url)
 
-    def _wrap_html(self, content: str, include_mermaid: bool = False) -> str:
+    def scroll_to_ratio(self, ratio: float):
+        """Scroll preview to a given ratio (0.0 to 1.0)."""
+        js = f"""
+        (function() {{
+            var maxScroll = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            window.scrollTo(0, maxScroll * {ratio});
+        }})();
+        """
+        self.web_view.page().runJavaScript(js, 0)
+
+    def _wrap_html(self, content: str, include_mermaid: bool = False, extra_scripts: str = "") -> str:
         css = Theme.get_preview_css(self.colors)
         highlight_css = MarkdownConverter.get_code_highlight_css()
         is_dark = self.colors.background == "#1e1e1e"
         mermaid_theme = "dark" if is_dark else "default"
 
-        # Only include mermaid.js when needed (local file)
         if include_mermaid and self.mermaid_js_path.exists():
             mermaid_head = f'<script src="mermaid.min.js"></script>'
             mermaid_init = f"""
@@ -107,6 +131,7 @@ class PreviewWidget(QWidget):
 <body>
     {content}
     {mermaid_init}
+    {extra_scripts}
 </body>
 </html>
 """

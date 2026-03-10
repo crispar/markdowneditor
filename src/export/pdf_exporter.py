@@ -1,5 +1,7 @@
+import sys
 from pathlib import Path
-from PySide6.QtCore import QObject, Signal, QMarginsF, QUrl, QEventLoop
+
+from PySide6.QtCore import QObject, Signal, QMarginsF, QUrl, QEventLoop, QTimer
 from PySide6.QtGui import QPageLayout, QPageSize
 from PySide6.QtWebEngineWidgets import QWebEngineView
 
@@ -21,6 +23,11 @@ class PDFExporter(QObject):
         self._web_view = None
         self._output_path = None
         self._event_loop = None
+        self._export_success = False
+        self._export_error = None
+        self._wait_for_mermaid = False
+        self._mermaid_wait_attempts = 0
+        self._max_mermaid_wait_attempts = 100  # ~10 seconds at 100ms
 
     def export(self, markdown_text: str, output_path: str) -> bool:
         self._output_path = output_path
@@ -30,7 +37,7 @@ class PDFExporter(QObject):
         self._web_view.setFixedSize(800, 600)
 
         # Prepare HTML content
-        html_content = self._prepare_html(markdown_text)
+        html_content, self._wait_for_mermaid = self._prepare_html(markdown_text)
         base_url = QUrl.fromLocalFile(str(self.base_path) + "/")
 
         # Connect load finished signal
@@ -63,21 +70,52 @@ class PDFExporter(QObject):
                 self._event_loop.quit()
             return
 
+        # Connect to PDF printing finished before printToPdf call.
+        self._web_view.page().pdfPrintingFinished.connect(self._on_pdf_finished)
+
+        if self._wait_for_mermaid:
+            self._mermaid_wait_attempts = 0
+            self._wait_until_mermaid_ready()
+            return
+
+        self._print_pdf()
+
+    def _wait_until_mermaid_ready(self):
+        if not self._web_view:
+            self._print_pdf()
+            return
+
+        self._mermaid_wait_attempts += 1
+
+        self._web_view.page().runJavaScript(
+            "window.__pdfMermaidReady === true",
+            self._on_mermaid_ready_checked,
+        )
+
+    def _on_mermaid_ready_checked(self, is_ready):
+        ready = bool(is_ready)
+
+        if ready or self._mermaid_wait_attempts >= self._max_mermaid_wait_attempts:
+            self._print_pdf()
+            return
+
+        QTimer.singleShot(100, self._wait_until_mermaid_ready)
+
+    def _print_pdf(self):
+        if not self._web_view:
+            return
+
         # Setup page layout for A4
         page_layout = QPageLayout(
             QPageSize(QPageSize.A4),
             QPageLayout.Portrait,
-            QMarginsF(15, 15, 15, 15)  # margins in mm
+            QMarginsF(15, 15, 15, 15),  # margins in mm
         )
 
-        # Export to PDF
         self._web_view.page().printToPdf(
             self._output_path,
-            page_layout
+            page_layout,
         )
-
-        # Connect to PDF printing finished
-        self._web_view.page().pdfPrintingFinished.connect(self._on_pdf_finished)
 
     def _on_pdf_finished(self, file_path: str, success: bool):
         self._export_success = success
@@ -86,26 +124,74 @@ class PDFExporter(QObject):
         if self._event_loop:
             self._event_loop.quit()
 
-    def _prepare_html(self, markdown_text: str) -> str:
+    def _prepare_html(self, markdown_text: str) -> tuple[str, bool]:
         html_content = self.converter.convert(markdown_text)
         css = self._get_pdf_css()
         highlight_css = MarkdownConverter.get_code_highlight_css()
 
-        return f"""
+        has_mermaid = 'class="mermaid"' in html_content
+        mermaid_js = self._get_resource_path("resources/js/mermaid.min.js")
+        mermaid_available = mermaid_js.exists()
+
+        if has_mermaid and mermaid_available:
+            mermaid_url = QUrl.fromLocalFile(str(mermaid_js)).toString()
+            mermaid_head = f'<script src="{mermaid_url}"></script>'
+            mermaid_script = """
+<script>
+window.__pdfMermaidReady = false;
+
+window.addEventListener('load', function () {
+    const markReady = function () { window.__pdfMermaidReady = true; };
+
+    if (typeof mermaid === 'undefined') {
+        markReady();
+        return;
+    }
+
+    try {
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: 'default'
+        });
+
+        Promise.resolve(mermaid.run({ querySelector: '.mermaid' }))
+            .then(markReady)
+            .catch(function () { markReady(); });
+    } catch (e) {
+        markReady();
+    }
+});
+</script>
+"""
+            wait_for_mermaid = True
+        else:
+            mermaid_head = ""
+            mermaid_script = "<script>window.__pdfMermaidReady = true;</script>"
+            wait_for_mermaid = False
+
+        html = f"""
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
+    <meta charset=\"UTF-8\">
+    {mermaid_head}
     <style>
         {css}
         {highlight_css}
+        .mermaid {{
+            text-align: center;
+            margin: 1em 0;
+        }}
     </style>
 </head>
 <body>
     {html_content}
+    {mermaid_script}
 </body>
 </html>
 """
+
+        return html, wait_for_mermaid
 
     def _get_pdf_css(self) -> str:
         colors = Theme.LIGHT
@@ -263,3 +349,9 @@ hr {{
 
     def set_base_path(self, path: str):
         self.base_path = Path(path)
+
+    @staticmethod
+    def _get_resource_path(relative_path: str) -> Path:
+        if hasattr(sys, "_MEIPASS"):
+            return Path(sys._MEIPASS) / relative_path
+        return Path(__file__).parent.parent.parent / relative_path

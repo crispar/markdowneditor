@@ -1,7 +1,9 @@
 """Tests for ImageHandler — image handling logic."""
 import sys
-import tempfile
+import shutil
 from pathlib import Path
+from uuid import uuid4
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.utils.image_handler import ImageHandler
@@ -9,8 +11,14 @@ from src.utils.image_handler import ImageHandler
 
 class TestImageHandler:
     def setup_method(self):
-        self.tmp_dir = tempfile.mkdtemp()
-        self.handler = ImageHandler(self.tmp_dir)
+        temp_root = Path.cwd() / ".pytest_tmp"
+        temp_root.mkdir(parents=True, exist_ok=True)
+        self.tmp_dir = temp_root / f"image_handler_{uuid4().hex[:8]}"
+        self.tmp_dir.mkdir(parents=True, exist_ok=True)
+        self.handler = ImageHandler(str(self.tmp_dir))
+
+    def teardown_method(self):
+        shutil.rmtree(self.tmp_dir, ignore_errors=True)
 
     # === Path management ===
 
@@ -118,4 +126,3 @@ class TestImageHandler:
         """RIFF without WEBP marker should not match."""
         data = b'RIFF' + b'\x00' * 4 + b'WAVE' + b'\x00' * 100
         assert self.handler._detect_image_type(data) is None
-

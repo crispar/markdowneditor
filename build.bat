@@ -5,7 +5,7 @@ echo ========================================
 echo.
 
 REM Activate virtual environment
-call venv\Scripts\activate.bat
+call .venv\Scripts\activate.bat
 
 REM Build with PyInstaller
 echo Building standalone executable...

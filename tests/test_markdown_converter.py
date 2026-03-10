@@ -1,4 +1,4 @@
-"""Tests for MarkdownConverter — core rendering logic (no Qt needed)."""
+"""Tests for MarkdownConverter - core rendering logic (no Qt needed)."""
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -126,3 +126,70 @@ class TestMarkdownConverter:
         assert "<h2" in html
         # Should not contain h1 from previous call
         assert "<h1" not in html
+
+    def test_erdiagram_relation_label_underscore_preserved(self):
+        md = """```mermaid
+erDiagram
+  A ||--o{ B : derived_from
+```"""
+        html = self.converter.convert(md)
+        assert "derived_from" in html
+
+    def test_erdiagram_entity_and_field_underscores_preserved(self):
+        md = """```mermaid
+erDiagram
+  MEMORY_ITEM ||--o{ MEMORY_SOURCE : derived_from
+  MEMORY_ITEM {
+    string memory_id
+  }
+```"""
+        html = self.converter.convert(md)
+        assert "MEMORY_ITEM" in html
+        assert "MEMORY_SOURCE" in html
+        assert "memory_id" in html
+
+    def test_mermaid_invisible_chars_removed(self):
+        md = """```mermaid
+erDiagram
+  A ||--o{ B : has\ufeff\u200b
+```"""
+        html = self.converter.convert(md)
+        assert "\ufeff" not in html
+        assert "\u200b" not in html
+
+    def test_flowchart_parentheses_label_is_quoted(self):
+        md = """```mermaid
+flowchart TB
+  A[Text (with parens)] --> B[Plain]
+```"""
+        html = self.converter.convert(md)
+        assert '["Text (with parens)"]' in html
+        assert '[Plain]' in html
+
+    def test_flowchart_prequoted_label_preserved(self):
+        md = """```mermaid
+flowchart TB
+  A["Already quoted (label)"] --> B
+```"""
+        html = self.converter.convert(md)
+        assert '["Already quoted (label)"]' in html
+
+    def test_quadrant_axis_unicode_text_is_quoted(self):
+        md = """```mermaid
+quadrantChart
+  x-axis 낮은 개인화 --> 높은 개인화
+  y-axis 낮은 리스크 --> 높은 리스크
+```"""
+        html = self.converter.convert(md)
+        assert 'x-axis "낮은 개인화" --> "높은 개인화"' in html
+        assert 'y-axis "낮은 리스크" --> "높은 리스크"' in html
+
+    def test_quadrant_point_unicode_label_is_quoted(self):
+        md = """```mermaid
+quadrantChart
+  x-axis low --> high
+  y-axis low --> high
+  한글라벨 : [0.45, 0.25]
+```"""
+        html = self.converter.convert(md)
+        assert '"한글라벨" : [0.45, 0.25]' in html

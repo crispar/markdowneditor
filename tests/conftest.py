@@ -1,11 +1,20 @@
 """Shared fixtures for all tests."""
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
 
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Force writable temp dir inside project (CI/sandbox-safe)
+_TEST_TEMP_DIR = Path(__file__).parent.parent / ".pytest_tmp"
+_TEST_TEMP_DIR.mkdir(parents=True, exist_ok=True)
+os.environ["TMP"] = str(_TEST_TEMP_DIR)
+os.environ["TEMP"] = str(_TEST_TEMP_DIR)
+tempfile.tempdir = str(_TEST_TEMP_DIR)
 
 from PySide6.QtWidgets import QApplication
 

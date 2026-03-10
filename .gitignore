@@ -16,6 +16,11 @@ __pycache__/
 .Python
 *.egg
 *.egg-info/
+.pytest_cache/
+.pytest_tmp/
+pytest-cache-files-*/
+.tmp/
+.runtime_tmp/
 
 # IDE
 .idea/
@@ -37,3 +42,4 @@ nul
 images/
 *.md
 !README.md
+node_modules/

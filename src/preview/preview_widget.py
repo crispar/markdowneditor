@@ -2,6 +2,7 @@ import sys
 import shutil
 import tempfile
 from pathlib import Path
+from uuid import uuid4
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtCore import QUrl, Qt
@@ -17,6 +18,38 @@ def get_resource_path(relative_path: str) -> Path:
     return Path(__file__).parent.parent.parent / relative_path
 
 
+def _ensure_writable_temp_root() -> Path:
+    """Return a writable temp root, falling back to project-local temp when needed."""
+    candidates = [Path(tempfile.gettempdir()), Path.cwd() / ".runtime_tmp"]
+
+    for candidate in candidates:
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+            probe = candidate / ".write_probe"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink(missing_ok=True)
+            return candidate
+        except OSError:
+            continue
+
+    fallback = Path.cwd() / ".runtime_tmp"
+    fallback.mkdir(parents=True, exist_ok=True)
+    return fallback
+
+
+def _create_runtime_temp_dir() -> Path:
+    """Create a writable runtime temp directory without using tempfile.mkdtemp."""
+    temp_root = _ensure_writable_temp_root()
+    for _ in range(10):
+        candidate = temp_root / f"mdeditor_{uuid4().hex[:10]}"
+        try:
+            candidate.mkdir(parents=True, exist_ok=False)
+            return candidate
+        except FileExistsError:
+            continue
+    raise RuntimeError("Unable to create a writable runtime temp directory")
+
+
 class PreviewWidget(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -27,7 +60,7 @@ class PreviewWidget(QWidget):
         self._pending_html = None
 
         # Create temp directory for mermaid rendering
-        self.temp_dir = Path(tempfile.mkdtemp())
+        self.temp_dir = _create_runtime_temp_dir()
         self.temp_html = self.temp_dir / "preview.html"
 
         # Copy mermaid.js to temp directory
@@ -100,7 +133,7 @@ class PreviewWidget(QWidget):
         mermaid_theme = "dark" if is_dark else "default"
 
         if include_mermaid and self.mermaid_js_path.exists():
-            mermaid_head = f'<script src="mermaid.min.js"></script>'
+            mermaid_head = '<script src="mermaid.min.js"></script>'
             mermaid_init = f"""
     <script>
         mermaid.initialize({{

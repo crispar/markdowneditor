@@ -63,7 +63,10 @@ class Theme:
 
     @classmethod
     def is_dark(cls) -> bool:
-        colors = cls.get_current()
+        return cls.is_dark_colors(cls.get_current())
+
+    @staticmethod
+    def is_dark_colors(colors: ThemeColors) -> bool:
         return colors.background == "#1e1e1e"
 
     @staticmethod
@@ -168,7 +171,7 @@ class Theme:
 
     @staticmethod
     def get_preview_css(colors: ThemeColors) -> str:
-        is_dark = colors.background == "#1e1e1e"
+        is_dark = Theme.is_dark_colors(colors)
         highlight_bg = "#272822" if is_dark else "#f6f8fa"
         highlight_fg = "#f8f8f2" if is_dark else "#24292e"
 
@@ -215,7 +218,6 @@ class Theme:
             overflow-x: auto;
         }}
         pre code {{
-            color: {colors.foreground};
             background-color: transparent;
             padding: 0;
             font-size: 0.9em;

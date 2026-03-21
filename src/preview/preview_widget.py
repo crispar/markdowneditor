@@ -95,8 +95,9 @@ class PreviewWidget(QWidget):
 
     def _wrap_html(self, content: str, include_mermaid: bool = False, extra_scripts: str = "") -> str:
         css = Theme.get_preview_css(self.colors)
-        highlight_css = MarkdownConverter.get_code_highlight_css()
         is_dark = self.colors.background == "#1e1e1e"
+        highlight_style = "monokai" if is_dark else "default"
+        highlight_css = MarkdownConverter.get_code_highlight_css(style=highlight_style)
         mermaid_theme = "dark" if is_dark else "default"
 
         if include_mermaid and self.mermaid_js_path.exists():

@@ -201,11 +201,13 @@ class Theme:
         code {{
             font-family: 'Consolas', 'Courier New', monospace;
             font-size: 0.9em;
+            color: {colors.foreground};
             background-color: {colors.toolbar_bg};
             padding: 0.2em 0.4em;
             border-radius: 3px;
         }}
         pre {{
+            color: {colors.foreground};
             background-color: {colors.editor_bg};
             border: 1px solid {colors.border};
             border-radius: 6px;
@@ -213,6 +215,7 @@ class Theme:
             overflow-x: auto;
         }}
         pre code {{
+            color: {colors.foreground};
             background-color: transparent;
             padding: 0;
             font-size: 0.9em;

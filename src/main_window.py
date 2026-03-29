@@ -25,12 +25,12 @@ class MainWindow(QMainWindow):
         self.app_instance = app_instance
         self.settings = QSettings("MarkdownEditor", "MarkdownEditor")
         self.file_manager = FileManager(self.settings)
+        self._layout_mode = "split"
 
         self._setup_ui()
         self._setup_menubar()
         self._setup_statusbar()
         self._setup_outline()
-        self._apply_theme()
         self._connect_signals()
         self._setup_autosave()
         self._restore_state()
@@ -225,14 +225,17 @@ class MainWindow(QMainWindow):
         format_menu.addSeparator()
 
         h1_action = QAction("Heading 1", self)
+        h1_action.setShortcut(QKeySequence("Ctrl+1"))
         h1_action.triggered.connect(self.editor.toolbar.heading1_clicked.emit)
         format_menu.addAction(h1_action)
 
         h2_action = QAction("Heading 2", self)
+        h2_action.setShortcut(QKeySequence("Ctrl+2"))
         h2_action.triggered.connect(self.editor.toolbar.heading2_clicked.emit)
         format_menu.addAction(h2_action)
 
         h3_action = QAction("Heading 3", self)
+        h3_action.setShortcut(QKeySequence("Ctrl+3"))
         h3_action.triggered.connect(self.editor.toolbar.heading3_clicked.emit)
         format_menu.addAction(h3_action)
 
@@ -473,8 +476,7 @@ class MainWindow(QMainWindow):
 
     def _sync_scroll(self):
         ratio = self.editor.get_scroll_ratio()
-        if ratio > 0.0:
-            self.preview.scroll_to_ratio(ratio)
+        self.preview.scroll_to_ratio(ratio)
 
     # ===== Status bar updates =====
 
@@ -494,6 +496,12 @@ class MainWindow(QMainWindow):
 
     def _get_initial_dir(self) -> str:
         return self.file_manager.get_initial_dir()
+
+    @staticmethod
+    def _ensure_extension(file_path: str, extension: str) -> str:
+        if file_path.lower().endswith(extension.lower()):
+            return file_path
+        return f"{file_path}{extension}"
 
     def _new_file(self):
         if self._check_unsaved_changes():
@@ -548,8 +556,7 @@ class MainWindow(QMainWindow):
         )
 
         if file_path:
-            if not file_path.endswith('.md'):
-                file_path += '.md'
+            file_path = self._ensure_extension(file_path, ".md")
             self._write_file(Path(file_path))
             self.file_manager.current_file = Path(file_path)
             self.file_manager.base_path = self.file_manager.current_file.parent
@@ -577,8 +584,7 @@ class MainWindow(QMainWindow):
         )
 
         if file_path:
-            if not file_path.endswith('.pdf'):
-                file_path += '.pdf'
+            file_path = self._ensure_extension(file_path, ".pdf")
 
             # Show progress
             self.statusbar.showMessage("Exporting PDF...")
@@ -609,8 +615,7 @@ class MainWindow(QMainWindow):
         )
 
         if file_path:
-            if not file_path.endswith('.html'):
-                file_path += '.html'
+            file_path = self._ensure_extension(file_path, ".html")
 
             try:
                 html_content = self.preview.get_full_html(self.editor.get_text())
@@ -633,9 +638,9 @@ class MainWindow(QMainWindow):
             if sys.platform == "win32":
                 os.startfile(file_path)
             elif sys.platform == "darwin":
-                subprocess.run(["open", file_path])
+                subprocess.run(["open", file_path], check=False)
             else:
-                subprocess.run(["xdg-open", file_path])
+                subprocess.run(["xdg-open", file_path], check=False)
         except Exception as e:
             self.statusbar.showMessage(f"Could not open file: {e}", 5000)
 
@@ -659,6 +664,9 @@ class MainWindow(QMainWindow):
     # ===== View actions =====
 
     def _set_layout(self, mode: str):
+        if mode not in ("split", "editor", "preview"):
+            mode = "split"
+
         self._layout_mode = mode
         if mode == "editor":
             self.splitter.setSizes([1, 0])
@@ -668,6 +676,12 @@ class MainWindow(QMainWindow):
             self.preview.update_preview(self.editor.get_text())
         else:  # split
             self.splitter.setSizes([1, 1])
+
+        # Keep menu state in sync
+        if hasattr(self, "split_view_action"):
+            self.split_view_action.setChecked(mode == "split")
+            self.editor_only_action.setChecked(mode == "editor")
+            self.preview_only_action.setChecked(mode == "preview")
 
     def _toggle_outline(self, checked):
         if checked:
@@ -719,10 +733,16 @@ class MainWindow(QMainWindow):
     # ===== About =====
 
     def _show_about(self):
+        version = "1.1.0"
+        if self.app_instance is not None:
+            if hasattr(self.app_instance, "APP_VERSION"):
+                version = self.app_instance.APP_VERSION
+            elif hasattr(self.app_instance, "app") and hasattr(self.app_instance.app, "applicationVersion"):
+                version = self.app_instance.app.applicationVersion()
         QMessageBox.about(
             self,
             "About Markdown Editor",
-            "Markdown Editor v1.1\n\n"
+            f"Markdown Editor {version}\n\n"
             "A modern Markdown editor with live preview.\n\n"
             "Features:\n"
             "- Real-time preview with scroll sync\n"
@@ -748,6 +768,8 @@ class MainWindow(QMainWindow):
         self.settings.setValue("geometry", self.saveGeometry())
         self.settings.setValue("window_state", self.saveState())
         self.settings.setValue("splitter_sizes", self.splitter.sizes())
+        self.settings.setValue("layout_mode", self._layout_mode)
+        self.settings.setValue("outline_visible", self.outline_dock.isVisible())
 
     def _restore_state(self):
         geometry = self.settings.value("geometry")
@@ -762,10 +784,26 @@ class MainWindow(QMainWindow):
         if splitter_sizes:
             self.splitter.setSizes([int(s) for s in splitter_sizes])
 
+        # Restore layout
+        layout_mode = self.settings.value("layout_mode", self._layout_mode)
+        self._set_layout(layout_mode)
+
+        # Restore outline visibility
+        outline_visible = self.settings.value("outline_visible", False)
+        if str(outline_visible).lower() in ("1", "true", "yes"):
+            self.outline_dock.show()
+            self.toggle_outline_action.setChecked(True)
+        else:
+            self.outline_dock.hide()
+            self.toggle_outline_action.setChecked(False)
+
         # Restore theme
         saved_theme = self.settings.value("theme_mode", "system")
-        if saved_theme != "system":
-            Theme.set_mode(saved_theme)
+        if saved_theme not in ("system", "light", "dark"):
+            saved_theme = "system"
+        Theme.set_mode(saved_theme)
+        self.settings.setValue("theme_mode", saved_theme)
+        self._apply_theme()
 
         # Restore font
         font_family = self.settings.value("editor_font_family")
@@ -807,7 +845,8 @@ class MainWindow(QMainWindow):
 
         if not Path(file_path).exists():
             QMessageBox.warning(self, "File Not Found", f"File no longer exists:\n{file_path}")
-            self.file_manager.recent_files.remove(file_path)
+            if file_path in self.file_manager.recent_files:
+                self.file_manager.recent_files.remove(file_path)
             self.file_manager.save_recent_files()
             self._update_recent_menu()
             return

@@ -4,6 +4,7 @@ Separated from MainWindow to follow Single Responsibility Principle.
 No UI dependencies — pure Python + QSettings for persistence.
 """
 from pathlib import Path
+from typing import Union
 
 from src.constants import MAX_RECENT_FILES
 
@@ -29,31 +30,34 @@ class FileManager:
             return last_dir
         return ""
 
-    def load_file(self, file_path):
+    def load_file(self, file_path: Union[str, Path]) -> str:
         """Load file content. Returns content string. Raises OSError on failure."""
-        with open(file_path, 'r', encoding='utf-8') as f:
+        path = self._ensure_path(file_path)
+        with path.open('r', encoding='utf-8') as f:
             content = f.read()
-        self.current_file = Path(file_path)
+        self.current_file = path
         self.base_path = self.current_file.parent
         self._dirty = False
         self._saved_text = content
-        self.add_recent_file(file_path)
+        self.add_recent_file(path)
         self.settings.setValue("last_directory", str(self.current_file.parent))
         return content
 
-    def write_file(self, path, content):
+    def write_file(self, path: Union[str, Path], content: str):
         """Write content to file. Raises OSError on failure."""
-        with open(path, 'w', encoding='utf-8') as f:
+        path = self._ensure_path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open('w', encoding='utf-8') as f:
             f.write(content)
 
-    def mark_dirty(self, current_text):
+    def mark_dirty(self, current_text: str):
         """Mark as dirty if text differs from saved. Returns True if state changed."""
         if not self._dirty and current_text != self._saved_text:
             self._dirty = True
             return True
         return False
 
-    def mark_saved(self, text):
+    def mark_saved(self, text: str):
         """Clear dirty flag after save."""
         self._dirty = False
         self._saved_text = text
@@ -84,13 +88,18 @@ class FileManager:
     def save_recent_files(self):
         self.settings.setValue("recent_files", self.recent_files)
 
-    def add_recent_file(self, file_path):
-        if file_path in self.recent_files:
-            self.recent_files.remove(file_path)
-        self.recent_files.insert(0, file_path)
+    def add_recent_file(self, file_path: Union[str, Path]):
+        normalized = file_path if isinstance(file_path, str) else str(file_path)
+        if normalized in self.recent_files:
+            self.recent_files.remove(normalized)
+        self.recent_files.insert(0, normalized)
         self.recent_files = self.recent_files[:MAX_RECENT_FILES]
         self.save_recent_files()
 
     def clear_recent_files(self):
         self.recent_files = []
         self.save_recent_files()
+
+    @staticmethod
+    def _ensure_path(file_path: Union[str, Path]) -> Path:
+        return file_path if isinstance(file_path, Path) else Path(file_path)

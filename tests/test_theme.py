@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from PySide6.QtGui import QPalette
 from src.styles.theme import Theme, ThemeColors
 
 
@@ -64,6 +65,24 @@ class TestThemeMode:
         Theme.set_mode("system")
         # No crash
 
+    def test_create_qpalette_dark_mode(self):
+        palette = Theme.create_qpalette("dark")
+        assert palette.color(QPalette.Window).name() == Theme.DARK.background
+        assert palette.color(QPalette.ButtonText).name() == Theme.DARK.editor_fg
+
+    def test_create_qpalette_unknown_defaults_to_light(self):
+        palette = Theme.create_qpalette("mystery")
+        assert palette.color(QPalette.Window).name() == Theme.LIGHT.background
+
+    def test_get_qpalette_for_current_mode_follows_mode(self):
+        Theme.set_mode("dark")
+        dark_palette = Theme.get_qpalette_for_current_mode()
+        assert dark_palette.color(QPalette.Window).name() == Theme.DARK.background
+
+        Theme.set_mode("light")
+        light_palette = Theme.get_qpalette_for_current_mode()
+        assert light_palette.color(QPalette.Window).name() == Theme.LIGHT.background
+
 
 class TestStylesheetGeneration:
     def test_stylesheet_contains_widget_selectors(self):
@@ -99,3 +118,4 @@ class TestStylesheetGeneration:
         # Light theme should have light highlight bg, dark should have dark
         assert "#f6f8fa" in light_css  # light highlight bg
         assert "#272822" in dark_css   # dark highlight bg
+

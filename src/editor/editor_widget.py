@@ -1,17 +1,15 @@
 import re
-import shutil
-from typing import Tuple
 from pathlib import Path
+from typing import Tuple
+
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QPlainTextEdit, QFileDialog, QMessageBox, QInputDialog
+    QWidget, QVBoxLayout, QPlainTextEdit, QFileDialog, QInputDialog, QTextEdit
 )
-from PySide6.QtCore import Signal, QTimer, QEvent, QUrl, QMimeData
+from PySide6.QtCore import Signal, QTimer, QEvent, Qt
 from PySide6.QtGui import (
-    QTextCursor, QKeyEvent, QFont, QColor, QTextCharFormat,
-    QKeySequence, QShortcut, QDragEnterEvent, QDropEvent
+    QTextCursor, QFont, QColor, QTextCharFormat,
+    QKeySequence, QShortcut
 )
-from PySide6.QtWidgets import QTextEdit
-from PySide6.QtCore import Qt
 
 from src.editor.toolbar import EditorToolbar
 from src.editor.find_replace import FindReplaceWidget
@@ -23,6 +21,7 @@ from src.constants import DEBOUNCE_INTERVAL, IMAGE_EXTENSIONS, MARKDOWN_EXTENSIO
 class EditorWidget(QWidget):
     text_changed = Signal(str)
     image_download_status = Signal(str)  # status message for statusbar
+    _DOWNLOADING_IMAGE_PLACEHOLDER = "![Downloading image...]"
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -139,19 +138,21 @@ class EditorWidget(QWidget):
         """Intercept key events from the editor widget"""
         if obj == self.editor and event.type() == QEvent.KeyPress:
             # Ctrl+V paste handling
-            if event.key() == Qt.Key_V and event.modifiers() == Qt.ControlModifier:
+            if event.key() == Qt.Key_V and bool(event.modifiers() & Qt.ControlModifier):
                 if self._handle_paste():
                     return True
             # Enter key auto-indent
             if event.key() in (Qt.Key_Return, Qt.Key_Enter) and event.modifiers() == Qt.NoModifier:
                 if self._handle_enter():
                     return True
+
         # Drag and drop on editor
         if obj == self.editor:
             if event.type() == QEvent.DragEnter:
                 return self._handle_drag_enter(event)
             if event.type() == QEvent.Drop:
                 return self._handle_drop(event)
+
         return super().eventFilter(obj, event)
 
     def _handle_enter(self) -> bool:
@@ -226,21 +227,10 @@ class EditorWidget(QWidget):
                 return True
 
             if any(lower_path.endswith(ext) for ext in IMAGE_EXTENSIONS):
-                self.image_handler.ensure_images_dir()
-                src = Path(file_path)
-                filename = src.name
-                dest_path = self.image_handler.images_dir / filename
-
-                if dest_path.exists():
-                    import uuid
-                    name, ext = filename.rsplit('.', 1)
-                    filename = f"{name}_{uuid.uuid4().hex[:8]}.{ext}"
-                    dest_path = self.image_handler.images_dir / filename
-
-                shutil.copy2(file_path, dest_path)
-                relative_path = f"images/{filename}"
-                md_syntax = self.image_handler.get_markdown_image_syntax(relative_path)
-                self._insert_text(md_syntax)
+                relative_path = self.image_handler.copy_image(file_path)
+                if relative_path:
+                    md_syntax = self.image_handler.get_markdown_image_syntax(relative_path)
+                    self._insert_text(md_syntax)
                 event.acceptProposedAction()
                 return True
 
@@ -264,28 +254,21 @@ class EditorWidget(QWidget):
             text = mime_data.text().strip()
             if self.image_handler.is_image_url(text):
                 self.image_download_status.emit("Downloading image...")
-                self._insert_text("![Downloading image...]")
+                self._insert_text(self._DOWNLOADING_IMAGE_PLACEHOLDER)
                 cursor = self.editor.textCursor()
-                start_pos = cursor.position() - len("![Downloading image...]")
+                start_pos = cursor.position() - len(self._DOWNLOADING_IMAGE_PLACEHOLDER)
 
                 image_path = self.image_handler.save_image_from_url(text)
-
-                cursor.setPosition(start_pos)
-                cursor.setPosition(cursor.position() + len("![Downloading image...]"),
-                                   QTextCursor.KeepAnchor)
-                cursor.removeSelectedText()
-                self.editor.setTextCursor(cursor)
-
                 if image_path:
                     md_syntax = self.image_handler.get_markdown_image_syntax(image_path)
-                    self._insert_text(md_syntax)
-                    self.image_download_status.emit("Image inserted")
-                    return True
+                    message = "Image inserted"
                 else:
                     md_syntax = f"![image]({text})"
-                    self._insert_text(md_syntax)
-                    self.image_download_status.emit("Image download failed, URL inserted")
-                    return True
+                    message = "Image download failed, URL inserted"
+
+                self._replace_text(start_pos, self._DOWNLOADING_IMAGE_PLACEHOLDER, md_syntax)
+                self.image_download_status.emit(message)
+                return True
 
         return False
 
@@ -390,6 +373,13 @@ class EditorWidget(QWidget):
         cursor = self.editor.textCursor()
         cursor.insertText(text)
 
+    def _replace_text(self, start_pos: int, old_text: str, new_text: str):
+        cursor = self.editor.textCursor()
+        cursor.setPosition(start_pos)
+        cursor.setPosition(start_pos + len(old_text), QTextCursor.KeepAnchor)
+        cursor.insertText(new_text)
+        self.editor.setTextCursor(cursor)
+
     def _insert_code_block(self):
         cursor = self.editor.textCursor()
         selected_text = cursor.selectedText()
@@ -441,7 +431,7 @@ class EditorWidget(QWidget):
         table_text = (
             "\n| Header 1 | Header 2 | Header 3 |\n"
             "| -------- | -------- | -------- |\n"
-            "| Cell 1   | Cell 2   | Cell 3   |\n"
+            "| Cell 1   | Cell 2   | Cell 3 |\n"
             "| Cell 4   | Cell 5   | Cell 6   |\n"
         )
         cursor.beginEditBlock()
@@ -457,20 +447,10 @@ class EditorWidget(QWidget):
         )
 
         if file_path:
-            self.image_handler.ensure_images_dir()
-            filename = Path(file_path).name
-            dest_path = self.image_handler.images_dir / filename
-
-            if dest_path.exists():
-                import uuid
-                name, ext = filename.rsplit('.', 1)
-                filename = f"{name}_{uuid.uuid4().hex[:8]}.{ext}"
-                dest_path = self.image_handler.images_dir / filename
-
-            shutil.copy2(file_path, dest_path)
-            relative_path = f"images/{filename}"
-            md_syntax = self.image_handler.get_markdown_image_syntax(relative_path)
-            self._insert_text(md_syntax)
+            relative_path = self.image_handler.copy_image(file_path)
+            if relative_path:
+                md_syntax = self.image_handler.get_markdown_image_syntax(relative_path)
+                self._insert_text(md_syntax)
 
     def get_text(self) -> str:
         return self.editor.toPlainText()

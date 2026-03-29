@@ -166,7 +166,7 @@ class TestRecentFiles:
         r = _run_test_script("""
 import tempfile
 from pathlib import Path
-with tempfile.NamedTemporaryFile(suffix=".md", delete=False) as f:
+with tempfile.NamedTemporaryFile(suffix=\".md\", delete=False) as f:
     test_path = f.name
 w._add_recent_file(test_path)
 assert test_path in w.recent_files
@@ -228,6 +228,25 @@ print("OK")
         r = _run_test_script("""
 w._switch_theme("light")
 assert w.editor.highlighter._is_dark is False
+print("OK")
+""")
+        assert "OK" in r.stdout, r.stderr
+
+    def test_restore_theme_from_settings(self):
+        r = _run_test_script("""
+class FakeSettings:
+    def __init__(self, values):
+        self._values = dict(values)
+
+    def value(self, key, default=None):
+        return self._values.get(key, default)
+
+    def setValue(self, key, value):
+        self._values[key] = value
+
+w.settings = FakeSettings({"theme_mode": "dark"})
+w._restore_state()
+assert w.editor.highlighter._is_dark is True
 print("OK")
 """)
         assert "OK" in r.stdout, r.stderr

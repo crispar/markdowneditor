@@ -4,6 +4,7 @@ import uuid
 import urllib.request
 from datetime import datetime
 from pathlib import Path
+import shutil
 from typing import Optional
 from PySide6.QtCore import QMimeData
 from PySide6.QtGui import QImage
@@ -46,10 +47,10 @@ class ImageHandler:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         unique_id = uuid.uuid4().hex[:8]
         filename = f"image_{timestamp}_{unique_id}.png"
-        filepath = self.images_dir / filename
+        filepath = self._unique_image_path(self.images_dir / filename)
 
         if image.save(str(filepath), "PNG"):
-            return f"images/{filename}"
+            return f"images/{filepath.name}"
         return None
 
     # Image magic bytes signatures
@@ -89,12 +90,12 @@ class ImageHandler:
                     return None
 
                 filename = f"image_{timestamp}_{unique_id}{ext}"
-                filepath = self.images_dir / filename
+                filepath = self._unique_image_path(self.images_dir / filename)
 
                 with open(filepath, 'wb') as f:
                     f.write(data)
 
-            return f"images/{filename}"
+            return f"images/{filepath.name}"
 
         except Exception as e:
             self.last_error = f"Failed to download image: {e}"
@@ -113,6 +114,30 @@ class ImageHandler:
                 return ext
 
         return None
+
+    def _unique_image_path(self, target: Path) -> Path:
+        """Generate a unique file path if same-name image already exists."""
+        if not target.exists():
+            return target
+
+        stem = target.stem
+        suffix = target.suffix
+        parent = target.parent
+        unique_id = uuid.uuid4().hex[:8]
+        return parent / f"{stem}_{unique_id}{suffix}"
+
+    def copy_image(self, source_path: str) -> Optional[str]:
+        """Copy external image into the project images folder and return markdown path."""
+        source = Path(source_path)
+        if not source.exists() or not source.is_file():
+            return None
+        self.ensure_images_dir()
+        target = self._unique_image_path(self.images_dir / source.name)
+        try:
+            shutil.copy2(str(source), str(target))
+            return f"images/{target.name}"
+        except OSError:
+            return None
 
     def is_image_url(self, text: str) -> bool:
         text = text.strip()

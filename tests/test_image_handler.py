@@ -119,3 +119,28 @@ class TestImageHandler:
         data = b'RIFF' + b'\x00' * 4 + b'WAVE' + b'\x00' * 100
         assert self.handler._detect_image_type(data) is None
 
+    def test_copy_image(self):
+        source = Path(self.tmp_dir) / "sample.png"
+        source.write_bytes(b"\x89PNG\r\n\x1a\nfake-png-data")
+
+        result = self.handler.copy_image(str(source))
+        assert result == "images/sample.png"
+        copied = Path(self.tmp_dir) / "images" / "sample.png"
+        assert copied.exists()
+
+    def test_copy_image_deduplicates_same_name(self):
+        source = Path(self.tmp_dir) / "sample.png"
+        source.write_bytes(b"\x89PNG\r\n\x1a\nfake-png-data")
+        first = self.handler.copy_image(str(source))
+        second = self.handler.copy_image(str(source))
+
+        assert first == "images/sample.png"
+        assert second != first
+        assert second.startswith("images/sample_")
+        assert Path(self.tmp_dir, second).exists()
+
+    def test_copy_image_returns_none_for_missing_file(self):
+        missing = Path(self.tmp_dir) / "missing.png"
+        result = self.handler.copy_image(str(missing))
+        assert result is None
+

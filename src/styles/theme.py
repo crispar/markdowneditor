@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from src.utils.theme_detector import ThemeDetector, ThemeMode
+from PySide6.QtGui import QPalette, QColor
 
 
 @dataclass
@@ -55,6 +56,36 @@ class Theme:
         if ThemeDetector.is_dark_mode():
             return cls.DARK
         return cls.LIGHT
+
+    @classmethod
+    def create_qpalette(cls, mode: str = "dark") -> QPalette:
+        """Create a platform-level QApplication palette for the selected mode."""
+        colors = cls.DARK if mode == "dark" else cls.LIGHT
+
+        palette = QPalette()
+        palette.setColor(QPalette.Window, QColor(colors.background))
+        palette.setColor(QPalette.WindowText, QColor(colors.editor_fg))
+        palette.setColor(QPalette.Base, QColor(colors.editor_bg))
+        palette.setColor(QPalette.AlternateBase, QColor(colors.toolbar_bg))
+        palette.setColor(QPalette.ToolTipBase, QColor(colors.toolbar_bg))
+        palette.setColor(QPalette.ToolTipText, QColor(colors.editor_fg))
+        palette.setColor(QPalette.Text, QColor(colors.editor_fg))
+        palette.setColor(QPalette.Button, QColor(colors.toolbar_bg))
+        palette.setColor(QPalette.ButtonText, QColor(colors.editor_fg))
+        palette.setColor(QPalette.BrightText, QColor("#ffffff"))
+        palette.setColor(QPalette.Link, QColor(colors.accent))
+        palette.setColor(QPalette.Highlight, QColor(colors.selection))
+        palette.setColor(QPalette.HighlightedText, QColor("#ffffff"))
+
+        disabled_text = QColor("#7f7f7f")
+        palette.setColor(QPalette.Disabled, QPalette.WindowText, disabled_text)
+        palette.setColor(QPalette.Disabled, QPalette.Text, disabled_text)
+        palette.setColor(QPalette.Disabled, QPalette.ButtonText, disabled_text)
+        return palette
+
+    @classmethod
+    def get_qpalette_for_current_mode(cls) -> QPalette:
+        return cls.create_qpalette("dark" if cls.is_dark() else "light")
 
     @classmethod
     def set_mode(cls, mode: str):

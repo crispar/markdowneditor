@@ -24,8 +24,6 @@ class PreviewWidget(QWidget):
         self.converter = MarkdownConverter()
         self.base_path = Path.cwd()
         self.colors = Theme.get_current()
-        self._scroll_position = 0
-        self._pending_html = None
 
         # Create temp directory for mermaid rendering
         self.temp_dir = Path(tempfile.mkdtemp())
@@ -96,6 +94,7 @@ class PreviewWidget(QWidget):
 
     def scroll_to_ratio(self, ratio: float):
         """Scroll preview to a given ratio (0.0 to 1.0)."""
+        ratio = max(0.0, min(1.0, ratio))
         js = f"""
         (function() {{
             var maxScroll = document.documentElement.scrollHeight - document.documentElement.clientHeight;

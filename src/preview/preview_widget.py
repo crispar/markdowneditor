@@ -5,6 +5,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QWidget, QVBoxLayout
 from PySide6.QtWebEngineWidgets import QWebEngineView
 from PySide6.QtCore import QUrl, Qt
+from PySide6.QtWebEngineCore import QWebEngineSettings
 
 from src.utils.markdown_converter import MarkdownConverter
 from src.styles.theme import Theme, ThemeColors
@@ -47,6 +48,16 @@ class PreviewWidget(QWidget):
 
         self.web_view = QWebEngineView(self)
         self.web_view.setContextMenuPolicy(Qt.NoContextMenu)
+
+        if hasattr(self.web_view, "settings"):
+            web_settings = self.web_view.settings()
+            web_settings.setAttribute(QWebEngineSettings.ShowScrollBars, True)
+
+        page = self.web_view.page() if hasattr(self.web_view, "page") else None
+        profile = page.profile() if page and hasattr(page, "profile") else None
+        if profile and hasattr(profile, "setSpellCheckEnabled"):
+            profile.setSpellCheckEnabled(False)
+
         layout.addWidget(self.web_view)
 
         # Initial empty content
@@ -123,13 +134,25 @@ class PreviewWidget(QWidget):
     <style>
         {css}
         {highlight_css}
+        html, body {{
+            -webkit-user-modify: read-only !important;
+        }}
+        body {{
+            -webkit-text-size-adjust: 100%;
+        }}
+        ::spelling-error,
+        ::grammar-error {{
+            text-decoration: none;
+            background: transparent;
+            box-shadow: none;
+        }}
         .mermaid {{
             text-align: center;
             margin: 1em 0;
         }}
     </style>
 </head>
-<body>
+<body spellcheck="false" tabindex="-1">
     {content}
     {mermaid_init}
     {extra_scripts}

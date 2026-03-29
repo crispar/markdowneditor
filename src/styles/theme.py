@@ -239,6 +239,9 @@ class Theme:
         .highlight code {{
             color: {highlight_fg};
         }}
+        .highlight .err {{
+            border: none !important;
+        }}
         blockquote {{
             margin: 0;
             padding: 0 1em;

@@ -7,6 +7,7 @@ on:
       - 'v*'
   pull_request:
     branches: [main]
+  workflow_dispatch:        # 수동 빌드 트리거 (Actions 탭 > Run workflow)
 
 jobs:
   build:
@@ -36,12 +37,40 @@ jobs:
         with:
           name: MarkdownEditor-Windows
           path: dist/MarkdownEditor.exe
-          retention-days: 7
+          retention-days: 90
 
-  release:
+  # main 푸시 또는 수동 실행 시: 최신 exe를 'latest' 프리릴리스로 영구 게시
+  # (Actions 아티팩트와 달리 로그인 없이 누구나 다운로드 가능, 만료 없음)
+  release-latest:
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: MarkdownEditor-Windows
+
+      - name: Publish latest pre-release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest build
+          prerelease: true
+          files: MarkdownEditor.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # v* 태그 push 시: 정식 릴리스 생성
+  release-tag:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
 
     steps:
       - name: Download artifact
@@ -50,7 +79,7 @@ jobs:
           name: MarkdownEditor-Windows
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: MarkdownEditor.exe
           generate_release_notes: true

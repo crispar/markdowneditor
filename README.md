@@ -12,7 +12,9 @@ PySide6 기반의 현대적인 마크다운 에디터. 실시간 미리보기, �
 - 자동 들여쓰기 (목록/인용)
 - 포맷 토글 (Bold/Italic 적용-해제)
 - 현재줄 하이라이트
+- 행(줄) 번호 표시
 - 단어/글자 수 표시
+- 수정 상태 표시 (상태바 Saved/Unsaved)
 
 ### 문서 관리
 
@@ -26,6 +28,7 @@ PySide6 기반의 현대적인 마크다운 에디터. 실시간 미리보기, �
 - 에디터/프리뷰/분할 뷰 전환
 - 다크/라이트 테마
 - 줌 인/아웃
+- 워드랩 토글
 - 전체화면 (F11)
 - 아웃라인(목차) 패널
 
@@ -50,7 +53,7 @@ PySide6 기반의 현대적인 마크다운 에디터. 실시간 미리보기, �
 
 ### 요구 사항
 
-- Python 3.8+
+- Python 3.8 ~ 3.10 (PySide6 6.2.4 호환 범위)
 - PySide6 6.2.4
 - markdown >= 3.3.0
 - Pygments >= 2.10.0
@@ -90,7 +93,14 @@ PyInstaller가 설치된 환경에서 다음 명령어를 실행합니다.
 pyinstaller --clean MarkdownEditor.spec
 ```
 
-빌드가 완료되면 `dist/MarkdownEditor.exe` 파일이 생성됩니다.
+빌드가 완료되면 `dist/MarkdownEditor/` **폴더**가 생성되고, 그 안의
+`dist/MarkdownEditor/MarkdownEditor.exe`가 실행 파일입니다. QtWebEngine
+때문에 단일 파일(onefile)이 아닌 폴더(onedir) 형태로 빌드되므로, 배포할 때는
+`MarkdownEditor` 폴더 전체(내부 `_internal/` 포함)를 함께 전달해야 합니다.
+
+> 참고: 경로에 한글 등 비ASCII 문자가 포함되면 PySide6 6.2.4의 QtWebEngine이
+> 실행 중 비정상 종료할 수 있으므로, ASCII 경로(예: `C:\Apps\MarkdownEditor`)
+> 에서 빌드·실행하는 것을 권장합니다.
 
 ## 단축키
 
@@ -159,10 +169,14 @@ MarkdownEditor/
 ├── src/
 │   ├── app.py
 │   ├── main_window.py
+│   ├── file_manager.py
 │   ├── outline_widget.py
+│   ├── constants.py
 │   ├── editor/
 │   │   ├── editor_widget.py
+│   │   ├── code_editor.py        # 줄번호 거터가 있는 QPlainTextEdit
 │   │   ├── toolbar.py
+│   │   ├── icons.py              # 런타임에 그리는 벡터 아이콘
 │   │   ├── find_replace.py
 │   │   └── syntax_highlighter.py
 │   ├── preview/
@@ -177,6 +191,9 @@ MarkdownEditor/
 │       └── theme_detector.py
 ├── tests/
 ├── resources/
+│   ├── icon.ico
+│   └── js/
+│       └── mermaid.min.js
 └── images/
 ```
 
@@ -186,7 +203,7 @@ MarkdownEditor/
 pytest tests/ -v
 ```
 
-현재 139+ 테스트가 포함되어 있습니다.
+현재 166개 테스트가 포함되어 있습니다.
 
 ## 라이선스
 

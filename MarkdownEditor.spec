@@ -66,7 +66,6 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        ('src/styles/preview.css', 'src/styles'),
         ('resources/js/mermaid.min.js', 'resources/js'),
     ],
     hiddenimports=[
@@ -117,25 +116,35 @@ a.datas = [x for x in a.datas if not x[0].endswith('.qm')]
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+# NOTE: QtWebEngine apps must be built in onedir (COLLECT) mode. A onefile
+# build crashes on launch (Qt6Core.dll, 0xc0000409) because the bundled
+# QtWebEngineProcess.exe / resources can't be located in the temp extract dir.
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.zipfiles,
-    a.datas,
     [],
+    exclude_binaries=True,
     name='MarkdownEditor',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
     upx=False,
-    upx_exclude=[],
-    runtime_tmpdir=None,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,
+    icon='resources/icon.ico',
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.zipfiles,
+    a.datas,
+    strip=False,
+    upx=False,
+    upx_exclude=[],
+    name='MarkdownEditor',
 )

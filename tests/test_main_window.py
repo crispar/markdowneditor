@@ -285,3 +285,41 @@ assert h1.childCount() == 1
 print("OK")
 """)
         assert "OK" in r.stdout, r.stderr
+
+    def test_outline_not_rebuilt_while_hidden(self):
+        # The outline dock is hidden by default; typing must NOT populate it.
+        r = _run_test_script("""
+assert not w.outline_dock.isVisible()
+w.editor.editor.setPlainText("# A\\n## B")
+w._update_outline_if_visible(w.editor.get_text())
+assert w.outline.tree.topLevelItemCount() == 0, "hidden outline should stay empty"
+print("OK")
+""")
+        assert "OK" in r.stdout, r.stderr
+
+
+class TestWordWrap:
+    def test_toggle_word_wrap(self):
+        r = _run_test_script("""
+from PySide6.QtWidgets import QPlainTextEdit
+w._toggle_word_wrap(False)
+assert w.editor.editor.lineWrapMode() == QPlainTextEdit.LineWrapMode.NoWrap
+w._toggle_word_wrap(True)
+assert w.editor.editor.lineWrapMode() == QPlainTextEdit.LineWrapMode.WidgetWidth
+print("OK")
+""")
+        assert "OK" in r.stdout, r.stderr
+
+
+class TestModifiedIndicator:
+    def test_indicator_tracks_dirty_state(self):
+        r = _run_test_script("""
+w._dirty = False
+w._update_modified_indicator()
+assert "Saved" in w.modified_label.text()
+w.editor.editor.setPlainText("changed")
+assert w._dirty is True
+assert "Unsaved" in w.modified_label.text()
+print("OK")
+""")
+        assert "OK" in r.stdout, r.stderr

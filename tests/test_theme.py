@@ -37,6 +37,13 @@ class TestThemeColors:
         assert Theme.LIGHT.background != Theme.DARK.background
         assert Theme.LIGHT.editor_bg != Theme.DARK.editor_bg
 
+    def test_is_dark_field(self):
+        assert Theme.DARK.is_dark is True
+        assert Theme.LIGHT.is_dark is False
+        # is_dark_colors must rely on the explicit flag, not a hardcoded color
+        assert Theme.is_dark_colors(Theme.DARK) is True
+        assert Theme.is_dark_colors(Theme.LIGHT) is False
+
 
 class TestThemeMode:
     def teardown_method(self):

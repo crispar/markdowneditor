@@ -3,12 +3,12 @@ import shutil
 from typing import Tuple
 from pathlib import Path
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QPlainTextEdit, QFileDialog, QMessageBox, QInputDialog
+    QWidget, QVBoxLayout, QFileDialog, QMessageBox, QInputDialog
 )
 from PySide6.QtCore import Signal, QTimer, QEvent, QUrl, QMimeData
 from PySide6.QtGui import (
     QTextCursor, QKeyEvent, QFont, QColor, QTextCharFormat,
-    QKeySequence, QShortcut, QDragEnterEvent, QDropEvent
+    QDragEnterEvent, QDropEvent
 )
 from PySide6.QtWidgets import QTextEdit
 from PySide6.QtCore import Qt
@@ -16,6 +16,7 @@ from PySide6.QtCore import Qt
 from src.editor.toolbar import EditorToolbar
 from src.editor.find_replace import FindReplaceWidget
 from src.editor.syntax_highlighter import MarkdownHighlighter
+from src.editor.code_editor import CodeEditor
 from src.utils.image_handler import ImageHandler
 from src.constants import DEBOUNCE_INTERVAL, IMAGE_EXTENSIONS, MARKDOWN_EXTENSIONS
 
@@ -51,8 +52,8 @@ class EditorWidget(QWidget):
         # Find/Replace bar
         self.find_replace = None  # lazy init after editor
 
-        # Editor
-        self.editor = QPlainTextEdit(self)
+        # Editor (QPlainTextEdit subclass with a line-number gutter)
+        self.editor = CodeEditor(self)
         self.editor.setPlaceholderText("Write your Markdown here...")
         font = QFont("Consolas", 12)
         font.setStyleHint(QFont.Monospace)
@@ -97,11 +98,9 @@ class EditorWidget(QWidget):
         self.toolbar.checklist_clicked.connect(lambda: self._prefix_lines("- [ ] "))
         self.toolbar.table_clicked.connect(self._insert_table)
 
-        # Find/Replace shortcuts
-        find_shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
-        find_shortcut.activated.connect(self._show_find)
-        replace_shortcut = QShortcut(QKeySequence("Ctrl+H"), self)
-        replace_shortcut.activated.connect(self._show_replace)
+        # NOTE: Ctrl+F / Ctrl+H are registered on the Edit-menu actions
+        # (MainWindow) which call show_find()/show_replace(); registering them
+        # here too would cause an "ambiguous shortcut overload".
 
     def _show_find(self):
         if self.find_replace:
@@ -134,6 +133,14 @@ class EditorWidget(QWidget):
     def set_current_line_color(self, color: QColor):
         self._current_line_color = color
         self._highlight_current_line()
+
+    def set_line_number_colors(self, text_color, bg_color):
+        self.editor.set_line_number_colors(text_color, bg_color)
+
+    def set_word_wrap(self, enabled: bool):
+        mode = (self.editor.LineWrapMode.WidgetWidth if enabled
+                else self.editor.LineWrapMode.NoWrap)
+        self.editor.setLineWrapMode(mode)
 
     def eventFilter(self, obj, event: QEvent) -> bool:
         """Intercept key events from the editor widget"""

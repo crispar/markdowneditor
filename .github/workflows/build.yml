@@ -1,12 +1,12 @@
 name: Build Executable
 
 on:
+  # main 으로의 push (= PR 머지 포함) 또는 v* 태그, 그리고 수동 실행에서만 빌드.
+  # PR(pull_request) 트리거는 없으므로 기능 브랜치에 푸시해도 빌드가 돌지 않음.
   push:
     branches: [main]
     tags:
       - 'v*'
-  pull_request:
-    branches: [main]
   workflow_dispatch:        # 수동 빌드 트리거 (Actions 탭 > Run workflow)
 
 jobs:
@@ -32,14 +32,20 @@ jobs:
         run: |
           python -m PyInstaller --clean MarkdownEditor.spec
 
+      # onedir 빌드 결과는 dist/MarkdownEditor/ 폴더 전체임 (QtWebEngine 때문에 onefile 불가).
+      # 배포를 위해 폴더 전체를 zip으로 묶는다.
+      - name: Package onedir build into zip
+        run: |
+          Compress-Archive -Path dist/MarkdownEditor/* -DestinationPath MarkdownEditor-Windows.zip -Force
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: MarkdownEditor-Windows
-          path: dist/MarkdownEditor.exe
+          path: MarkdownEditor-Windows.zip
           retention-days: 90
 
-  # main 푸시 또는 수동 실행 시: 최신 exe를 'latest' 프리릴리스로 영구 게시
+  # main 푸시 또는 수동 실행 시: 최신 빌드를 'latest' 프리릴리스로 영구 게시
   # (Actions 아티팩트와 달리 로그인 없이 누구나 다운로드 가능, 만료 없음)
   release-latest:
     needs: build
@@ -60,7 +66,7 @@ jobs:
           tag_name: latest
           name: Latest build
           prerelease: true
-          files: MarkdownEditor.exe
+          files: MarkdownEditor-Windows.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -81,7 +87,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          files: MarkdownEditor.exe
+          files: MarkdownEditor-Windows.zip
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

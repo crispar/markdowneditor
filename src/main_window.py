@@ -13,7 +13,7 @@ from PySide6.QtGui import QAction, QKeySequence, QColor, QFont, QTextCursor, QAc
 from src.editor import EditorWidget
 from src.preview import PreviewWidget
 from src.export import PDFExporter
-from src.styles.theme import Theme, ThemeColors
+from src.styles.theme import Theme
 from src.outline_widget import OutlineWidget
 from src.file_manager import FileManager
 from src.constants import AUTOSAVE_INTERVAL
@@ -98,6 +98,8 @@ class MainWindow(QMainWindow):
     def _setup_outline(self):
         self.outline = OutlineWidget(self)
         self.outline_dock = QDockWidget("Outline", self)
+        # objectName is required for QMainWindow.saveState() to persist the dock
+        self.outline_dock.setObjectName("OutlineDock")
         self.outline_dock.setWidget(self.outline)
         self.outline_dock.setAllowedAreas(Qt.LeftDockWidgetArea | Qt.RightDockWidgetArea)
         self.addDockWidget(Qt.RightDockWidgetArea, self.outline_dock)
@@ -375,6 +377,15 @@ class MainWindow(QMainWindow):
 
         view_menu.addSeparator()
 
+        # Word wrap toggle
+        self.word_wrap_action = QAction("Word Wrap", self)
+        self.word_wrap_action.setCheckable(True)
+        self.word_wrap_action.setChecked(True)
+        self.word_wrap_action.triggered.connect(self._toggle_word_wrap)
+        view_menu.addAction(self.word_wrap_action)
+
+        view_menu.addSeparator()
+
         # Fullscreen
         self.fullscreen_action = QAction("Fullscreen", self)
         self.fullscreen_action.setShortcut(QKeySequence("F11"))
@@ -398,15 +409,18 @@ class MainWindow(QMainWindow):
         status_layout.setContentsMargins(0, 0, 0, 0)
         status_layout.setSpacing(20)
 
+        self.modified_label = QLabel("")
         self.char_count_label = QLabel("Characters: 0")
         self.word_count_label = QLabel("Words: 0")
         self.cursor_pos_label = QLabel("Ln 1, Col 1")
 
+        status_layout.addWidget(self.modified_label)
         status_layout.addWidget(self.char_count_label)
         status_layout.addWidget(self.word_count_label)
         status_layout.addWidget(self.cursor_pos_label)
 
         self.statusbar.addPermanentWidget(status_widget)
+        self._update_modified_indicator()
 
     def _apply_theme(self):
         colors = Theme.get_current()
@@ -416,9 +430,15 @@ class MainWindow(QMainWindow):
         # Update editor current line highlight color
         self.editor.set_current_line_color(QColor(colors.current_line))
 
+        # Update line-number gutter colors
+        self.editor.set_line_number_colors(colors.foreground, colors.toolbar_bg)
+
         # Update syntax highlighter theme
         is_dark = Theme.is_dark()
         self.editor.set_dark_mode(is_dark)
+
+        # Recolour toolbar icons to match the theme foreground
+        self.editor.toolbar.set_icon_color(colors.foreground)
 
         # Update theme check marks
         if hasattr(self, 'light_theme_action'):
@@ -442,8 +462,8 @@ class MainWindow(QMainWindow):
         # Scroll sync
         self.editor.connect_scroll_changed(self._sync_scroll)
 
-        # Outline update
-        self.editor.text_changed.connect(self.outline.update_outline)
+        # Outline update (only rebuild the tree while the panel is visible)
+        self.editor.text_changed.connect(self._update_outline_if_visible)
 
         # Image download status
         self.editor.image_download_status.connect(
@@ -643,6 +663,15 @@ class MainWindow(QMainWindow):
 
     def _update_title(self):
         self.setWindowTitle(self.file_manager.get_title())
+        self._update_modified_indicator()
+
+    def _update_modified_indicator(self):
+        if self._dirty:
+            self.modified_label.setText("● Unsaved")
+            self.modified_label.setStyleSheet("color: #e6a23c;")  # amber
+        else:
+            self.modified_label.setText("● Saved")
+            self.modified_label.setStyleSheet("color: #67c23a;")  # green
 
     def _check_unsaved_changes(self) -> bool:
         if self._dirty:
@@ -659,7 +688,6 @@ class MainWindow(QMainWindow):
     # ===== View actions =====
 
     def _set_layout(self, mode: str):
-        self._layout_mode = mode
         if mode == "editor":
             self.splitter.setSizes([1, 0])
             self.preview.update_preview(self.editor.get_text())
@@ -668,6 +696,10 @@ class MainWindow(QMainWindow):
             self.preview.update_preview(self.editor.get_text())
         else:  # split
             self.splitter.setSizes([1, 1])
+
+    def _update_outline_if_visible(self, text):
+        if self.outline_dock.isVisible():
+            self.outline.update_outline(text)
 
     def _toggle_outline(self, checked):
         if checked:
@@ -709,6 +741,10 @@ class MainWindow(QMainWindow):
             self.editor.set_font(font)
             self.settings.setValue("editor_font_family", font.family())
             self.settings.setValue("editor_font_size", font.pointSize())
+
+    def _toggle_word_wrap(self, checked):
+        self.editor.set_word_wrap(checked)
+        self.settings.setValue("word_wrap", checked)
 
     def _toggle_fullscreen(self, checked):
         if checked:
@@ -761,6 +797,11 @@ class MainWindow(QMainWindow):
         splitter_sizes = self.settings.value("splitter_sizes")
         if splitter_sizes:
             self.splitter.setSizes([int(s) for s in splitter_sizes])
+
+        # Restore word wrap preference
+        word_wrap = self.settings.value("word_wrap", True, type=bool)
+        self.word_wrap_action.setChecked(word_wrap)
+        self.editor.set_word_wrap(word_wrap)
 
         # Restore theme
         saved_theme = self.settings.value("theme_mode", "system")

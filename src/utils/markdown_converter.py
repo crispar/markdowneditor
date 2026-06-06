@@ -24,7 +24,6 @@ class MarkdownConverter:
                 'codehilite': {
                     'css_class': 'highlight',
                     'linenums': False,
-                    'guess_lang': True,
                 }
             }
         )

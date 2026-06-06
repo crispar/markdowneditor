@@ -18,6 +18,10 @@ class MarkdownEditorApp:
         self.app.setApplicationVersion("1.0.0")
         self.app.setOrganizationName("MarkdownEditor")
 
+        # Application / window / taskbar icon (drawn at runtime, no asset files)
+        from src.editor.icons import make_app_icon
+        self.app.setWindowIcon(make_app_icon(256))
+
         # Enable high DPI scaling
         self.app.setHighDpiScaleFactorRoundingPolicy(
             Qt.HighDpiScaleFactorRoundingPolicy.PassThrough

@@ -1,5 +1,5 @@
 import re
-from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget, QLabel
+from PySide6.QtWidgets import QTreeWidget, QTreeWidgetItem, QVBoxLayout, QWidget
 from PySide6.QtCore import Signal, Qt
 
 
@@ -15,10 +15,8 @@ class OutlineWidget(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        title = QLabel("  Outline")
-        title.setStyleSheet("font-weight: bold; padding: 6px 0;")
-        layout.addWidget(title)
-
+        # The enclosing QDockWidget already shows an "Outline" title, so we
+        # don't add a redundant in-widget label here.
         self.tree = QTreeWidget()
         self.tree.setHeaderHidden(True)
         self.tree.setIndentation(16)

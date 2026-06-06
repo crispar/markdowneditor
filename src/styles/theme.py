@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from src.utils.theme_detector import ThemeDetector, ThemeMode
+from src.utils.theme_detector import ThemeDetector
 
 
 @dataclass
@@ -14,6 +14,7 @@ class ThemeColors:
     selection: str
     accent: str
     current_line: str = "#e8f0fe"
+    is_dark: bool = False
 
 
 class Theme:
@@ -28,6 +29,7 @@ class Theme:
         selection="#0366d6",
         accent="#0066cc",
         current_line="#e8f0fe",
+        is_dark=False,
     )
 
     DARK = ThemeColors(
@@ -41,6 +43,7 @@ class Theme:
         selection="#264f78",
         accent="#569cd6",
         current_line="#2a2d2e",
+        is_dark=True,
     )
 
     _current_mode = None  # None means follow system
@@ -67,7 +70,7 @@ class Theme:
 
     @staticmethod
     def is_dark_colors(colors: ThemeColors) -> bool:
-        return colors.background == "#1e1e1e"
+        return colors.is_dark
 
     @staticmethod
     def get_stylesheet(colors: ThemeColors) -> str:
@@ -92,18 +95,18 @@ class Theme:
             background-color: {colors.toolbar_bg};
             border: none;
             border-bottom: 1px solid {colors.border};
-            spacing: 4px;
-            padding: 4px;
+            spacing: 2px;
+            padding: 3px;
         }}
         QToolButton {{
             background-color: transparent;
             border: 1px solid transparent;
             border-radius: 4px;
-            padding: 6px;
+            padding: 4px;
             color: {colors.foreground};
             font-size: 14px;
-            min-width: 28px;
-            min-height: 28px;
+            min-width: 24px;
+            min-height: 24px;
         }}
         QToolButton:hover {{
             background-color: {colors.button_hover};

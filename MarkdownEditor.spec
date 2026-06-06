@@ -66,7 +66,6 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        ('src/styles/preview.css', 'src/styles'),
         ('resources/js/mermaid.min.js', 'resources/js'),
     ],
     hiddenimports=[
@@ -136,7 +135,7 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=None,
+    icon='resources/icon.ico',
 )
 
 coll = COLLECT(

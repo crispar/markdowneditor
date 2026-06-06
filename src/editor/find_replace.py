@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QPushButton, QCheckBox, QLabel
 )
 from PySide6.QtCore import Signal, Qt
-from PySide6.QtGui import QKeySequence, QShortcut, QTextDocument
+from PySide6.QtGui import QKeySequence, QShortcut, QTextDocument, QTextCursor
 
 
 class FindReplaceWidget(QWidget):
@@ -125,7 +125,6 @@ class FindReplaceWidget(QWidget):
         # Find from current position
         if not self.editor.find(text, self._get_find_flags()):
             # Wrap around from start
-            from PySide6.QtGui import QTextCursor
             cursor = self.editor.textCursor()
             cursor.movePosition(QTextCursor.Start)
             self.editor.setTextCursor(cursor)
@@ -146,7 +145,7 @@ class FindReplaceWidget(QWidget):
         if not self.editor.find(text, self._get_find_flags()):
             # Wrap around
             cursor = self.editor.textCursor()
-            cursor.movePosition(cursor.Start)
+            cursor.movePosition(QTextCursor.Start)
             self.editor.setTextCursor(cursor)
             self.editor.find(text, self._get_find_flags())
 
@@ -158,7 +157,7 @@ class FindReplaceWidget(QWidget):
         if not self.editor.find(text, flags):
             # Wrap around
             cursor = self.editor.textCursor()
-            cursor.movePosition(cursor.End)
+            cursor.movePosition(QTextCursor.End)
             self.editor.setTextCursor(cursor)
             self.editor.find(text, flags)
 
